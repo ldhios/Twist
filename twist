@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.3 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.4 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -735,6 +735,7 @@ twist_stop(){
         [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
         kill -9 \$pid
         rm -f /var/run/shadowsocks-libev.pid
+        [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
         echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
         exit 0
         ;;

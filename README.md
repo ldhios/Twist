@@ -30,9 +30,10 @@ sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twi
 ```
 
 ## Attention
-Please make sure that your server was able to **Connect to the Internet and Opened these Inboard & Outboard Ports** below. It required by shadowsocks-libev services based on your configurations. And It will be automatically configured on your System Side but will not be on the Server Management Console
+Please make sure that your server was able to **Connect to the Internet and Opened these Inboard & Outboard Ports** below. It required by shadowsocks-libev service and apache fake service based on your configurations. And It will be automatically configured on your System Side but will not be on the Server Management Console. You may manually open these port
 ```txt
 UDP 443
+TCP 80
 TCP 443
 ```
 

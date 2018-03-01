@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.0 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.1 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -427,12 +427,7 @@ function updatekernel(){
         [ -z "$KERNELVER" ] && { BBR="disable"; echo -e "# [\033[31;1mCannot get the newest Linux Kernel Verison, BBR will not enable on your server! \033[0m]"; }
         if [ "$BBR" = "enable" ]; then
             SYSTYPE="$(dpkg --print-architecture)"
-            [ "$SYSTYPE" = "amd64" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/amd64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
-            [ "$SYSTYPE" = "i386" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/i386.deb/{print $2}' | cut -d'<' -f1 | head -1)"
-            [ "$SYSTYPE" = "armhf" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/armhf.deb/{print $2}' | cut -d'<' -f1 | head -1)"
-            [ "$SYSTYPE" = "arm64" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/arm64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
-            [ "$SYSTYPE" = "ppc64el" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/ppc64el.deb/{print $2}' | cut -d'<' -f1 | head -1)"
-            [ "$SYSTYPE" = "s390x" ] && KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/s390x.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+            KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/${SYSTYPE}.deb/{print $2}' | cut -d'<' -f1 | head -1)"
             [ "$BBR" = "enable" ] && wget -t 3 -T 30 -nv -O "$KERNEL" "${KERNELURL}v${KERNELVER}/${KERNEL}"
             [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || { echo ""; echo -e "# [\033[31;1mCannot Update Kernel, BBR will not enable on your server! \033[0m]"; echo ""; sleep 3; BBR="disable"; }; }
             [ "$BBR" = "enable" ] && { dpkg -l | grep linux-image; rm -f $KERNEL; update-grub; }

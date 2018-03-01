@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.5 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.6 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -46,9 +46,6 @@ function install_twist(){
     sleep 5
     rootness
     selinuxdisable
-    if grep -qs "Twist" /etc/sysctl.conf; then
-        OVERWRITE="ture"
-    fi
     [ -d /etc/twistbackup ] || mkdir -p /etc/twistbackup
     shadowsocksconfig
     systemconfig

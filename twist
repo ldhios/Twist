@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.4 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.5 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -483,7 +483,7 @@ function sslibevinstall(){
     [ -d ${sslibevver} ] && rm -rf $sslibevver
     tar zxf ${sslibevver}.tar.gz
     pushd $sslibevver
-    ./configure
+    ./configure --disable-documentation
     make "-j$((MAKECORES+1))" && make install || sslibevinstallerr "shadowsocks-libev-$(echo ${sslibevtag} | sed -e 's/^[a-zA-Z]//g')" err
     popd
     ldconfig
@@ -694,13 +694,13 @@ twist_status(){
     ssserverpid
     case \$? in
         0)
-        echo -e "# \033[32;1mShadowsocks-libev is Running... \033[0m"
-        exit 0
-        ;;
+            echo -e "# \033[32;1mShadowsocks-libev is Running... \033[0m"
+            exit 0
+            ;;
         1|2)
-        echo -e "# \033[31;1mShadowsocks-libev is Stopped... \033[0m"
-        exit 1
-        ;;
+            echo -e "# \033[31;1mShadowsocks-libev is Stopped... \033[0m"
+            exit 1
+            ;;
     esac
 }
 
@@ -709,20 +709,21 @@ twist_start(){
     ssserverpid
     case \$? in
         0)
-        echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
-        exit 0
-        ;;
+            echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
+            exit 0
+            ;;
         1|2)
-        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
-        [ -e /var/log/twistprotect ] || touch /var/log/twistprotect
-        ssserverpid
-        if [ "\$?" = "0" ]; then
-            echo -e "# \033[32;1mStarting Shadowsocks-libev Success... \033[0m"
-        else
-            echo -e "# \033[31;1mStarting Shadowsocks-libev Failed... \033[0m"
-            exit 1
-        fi
-        ;;
+            ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+            [ -e /var/log/twistprotect ] || touch /var/log/twistprotect
+            ssserverpid
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[32;1mStarting Shadowsocks-libev Success... \033[0m"
+                exit 0
+            else
+                echo -e "# \033[31;1mStarting Shadowsocks-libev Failed... \033[0m"
+                exit 1
+            fi
+            ;;
     esac
 }
 
@@ -732,17 +733,17 @@ twist_stop(){
     ssserverpid
     case \$? in
         0)
-        [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
-        kill -9 \$pid
-        rm -f /var/run/shadowsocks-libev.pid
-        [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
-        echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
-        exit 0
-        ;;
+            [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
+            kill -9 \$pid
+            rm -f /var/run/shadowsocks-libev.pid
+            [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
+            echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
+            exit 0
+            ;;
         1|2)
-        echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
-        exit 1
-        ;;
+            echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
+            exit 1
+            ;;
     esac
 }
 
@@ -773,12 +774,12 @@ twist_uninstall(){
 
 case "\$1" in
     status|start|stop|restart|custom|update|uninstall)
-    twist_\${1}
-    ;;
+        twist_\${1}
+        ;;
     *)
-    echo "Usage: \$0 { status | start | stop | restart | custom | update | uninstall }"
-    exit 1
-    ;;
+        echo "Usage: \$0 { status | start | stop | restart | custom | update | uninstall }"
+        exit 1
+        ;;
 esac
 
 EOF
@@ -883,11 +884,11 @@ action="$1"
 [ -z "$1" ] && action="install"
 case "$action" in
     install|update|uninstall)
-    ${action}_twist
-    exit 0
-    ;;
+        ${action}_twist
+        exit 0
+        ;;
     *)
-    echo "Usage: $0 { install | update | uninstall }"
-    exit 1
-    ;;
+        echo "Usage: $0 { install | update | uninstall }"
+        exit 1
+        ;;
 esac

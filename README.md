@@ -62,8 +62,8 @@ Edit values in typename="**HERE**", save and run Twist after you have confirmed 
  OBFS="tls"                       # Obfs method using tls or http
  OBFSHOST="mzstatic.com"          # Obfs host address
  OBFSURI="/"                      # Obfs specify the client request path uri
- BBR="enable"                     # Google BBR for low delay network to get faster speed
  FWS="enable"                     # Fake as a apache web server for concealing
+ BBR="enable"                     # Use Google BBR for low delay network to get faster speed
 ```
 You could also install any version of shadowsocks-libev and its components that you want. Do this by changing these and following its formart.
 ```txt

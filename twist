@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.9 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.0 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -90,6 +90,7 @@ function update_twist(){
     twistprint
     echo -e "#[\033[32;1m                      Twist Update Finished                       \033[0m]#"
     twistprint banner
+    serverrestart "Update"
     echo ""
     exit 1
 }
@@ -212,6 +213,16 @@ function systemdetecterr(){
 function timemachine(){
     [ -e "$2" ] && cp -f "${2}" "${3}"
     [ "$1" = "backup" ] && { [ -e "$2" ] && cp -f "${2}" "${3}.old-${date}"; }
+}
+
+function serverrestart(){
+    if [ "$serverrestart" = "true" ]; then
+        echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot! \033[0m]"
+        echo ""
+        read -p ""
+        sleep 3
+        reboot
+    fi
 }
 
 function rootness(){
@@ -618,6 +629,10 @@ EOF
 }
 
 function servicesstart(){
+    recheckkernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
+    if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheader}" '{print($1>ver)? "1":"0"}') -eq "1" ]; then
+        serverrestart="true"
+    fi
     if [ -f /usr/local/bin/ss-server ]; then
         ssserverpath="/usr/local/bin/ss-server"
     else
@@ -861,19 +876,15 @@ function servicesstatus(){
     twistprint
     echo -e "                            [\033[32;1mInstall Complete\033[0m]"
     echo -e "        [\033[32;1mPlease Press Enter to Show Connect Infomation and EXIT\033[0m]"
-    echo -e "########################################################################"
+    twistprint banner
     read -p ""
     echo "ss://$(echo -n "${METHOD}:${PASSWORD}@${PUBLICIP}:${PORT}?plugin=obfs-local;obfs-host=${OBFSHOST};obfs-uri=${OBFSURI};obfs=${OBFS}#Twist" | base64 -w 0)" | qr
     echo -e "# [\033[32;1mss://\033[0m\033[34;1m$(echo -n "${METHOD}:${PASSWORD}@${PUBLICIP}:${PORT}?plugin=obfs-local;obfs-host=${OBFSHOST};obfs-uri=${OBFSURI};obfs=${OBFS}#Twist" | base64 -w 0)\033[0m]"
     echo -e "# [\033[32;1mServer IP:\033[0m \033[34;1m${PUBLICIP}\033[0m\c"
     [ ! "$IPV6ENABLE" = "false" ] && echo -e "(\033[34;1m${PUBLICIPv6}\033[0m)\c"
     echo -e " \033[32;1mPassWord:\033[0m \033[34;1m${PASSWORD}\033[0m \033[32;1mEncryption:\033[0m \033[34;1m${METHOD}\033[0m \033[32;1mOBFS:\033[0m \033[34;1m${OBFS}\033[0m \033[32;1mOBFS-HOST:\033[0m \033[34;1m${OBFSHOST}\033[0m \033[32;1mOBFS-URI:\033[0m \033[34;1m${OBFSURI}\033[0m \033[32;1mLOCALHOST:\033[0m \033[34;1m${LOACL}:${LOCALPORT}\033[0m]"
-    if [ "$serverrestart" = "true" ]; then
-        echo -e "# [\033[31;1mThe Server Requires Restart to Finish Installation, Please Press Enter to Reboot! \033[0m]"
-        read -p ""
-        sleep 3
-        reboot
-    fi
+    serverrestart "Installation"
+    echo ""
 }
 
 case "$1" in

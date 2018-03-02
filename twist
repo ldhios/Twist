@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.2 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.3 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -258,7 +258,7 @@ function systemdetect(){
     fi
     if [ ! -z "$(which apt)" ]; then
         packagemanagertype="a"
-        webservername="apache"
+        webservername="apache2"
     elif [ ! -z "$(which yum)" ]; then
         packagemanagertype="y"
         webservername="httpd"
@@ -308,6 +308,7 @@ function systemdetect(){
     MAKECORES="$(grep -c ^processor /proc/cpuinfo)"
     [ -z "$MAKECORES" ] && MAKECORES="1"
     kernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
+    kernelverheaderold="$kernelverheader"
     if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "1" ]; then
         [ "$BBR" = "enable" ] && serverrestart="true"
     fi
@@ -651,8 +652,9 @@ EOF
 
 function servicesstart(){
     recheckkernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
-    if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheader}" '{print($1>ver)? "1":"0"}') -eq "0" ]; then
+    if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheaderold}" '{print($1>ver)? "1":"0"}') -eq "0" ]; then
         serverrestart="true"
+        [ "$recheckkernelverheader" = "kernelverheaderold" ] && serverrestart="false"
     fi
     if [ -f /usr/local/bin/ss-server ]; then
         ssserverpath="/usr/local/bin/ss-server"
@@ -736,12 +738,27 @@ componentps(){
     esac
 }
 
+componentstatus(){
+    if [ "\$2" = "Starting" ]; then
+        echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+        echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+    else
+        echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+        echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+    fi
+    if [ "\$1" = "0" ]; then
+        echo -e "\${echostatusa}"
+    else
+        echo -e "\${echostatusb}"
+    fi
+}
+
 twist_status(){
     echo -e "# [\033[34;1mTWIST Checking Server Status\033[0m]"
     ssserverpid "echo"
     componentps "fail2ban" "Fail2ban Protect" "echo" "enable"
-    componentps "$webservername" "Apache2 Web Redirect" "echo" "$FWS"
-    if [ -z "$(lsmod | grep bbr)" ]; then
+    componentps "$webservername" "Fake Web Redirect" "echo" "$FWS"
+    if [ "$(lsmod | grep bbr)" = "" ]; then
         echo -e "# \033[31;1mTCP BBR Support is Disabled... \033[0m"
     else
         echo -e "# \033[32;1mTCP BBR Support is Enabled... \033[0m"
@@ -775,29 +792,21 @@ twist_start(){
         1)
             systemctl start fail2ban
             componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[32;1mStarting Fail2ban Protect Service Success... \033[0m"
-            else
-                echo -e "# \033[31;1mStarting Fail2ban Protect Service Failed... \033[0m"
-            fi
+            componentstatus "\$?" "Starting" "Fail2ban Protect"
             ;;
     esac
-    componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+    componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case \$? in
         0)
-            echo -e "# \033[32;1mApache2 Web Redirect Service is Already Running... \033[0m"
+            echo -e "# \033[32;1mFake Web Redirect Service is Already Running... \033[0m"
             ;;
         1)
-            systemctl start apache2
-            componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[32;1mStarting Apache2 Web Redirect Service Success... \033[0m"
-            else
-                echo -e "# \033[31;1mStarting Apache2 Web Redirect Service Failed... \033[0m"
-            fi
+            systemctl start ${webservername}
+            componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
+            componentstatus "\$?" "Starting" "Fake Web Redirect"
             ;;
         2)
-            componentps "$webservername" "Apache2 Web Redirect" "show" "disabled"
+            componentps "$webservername" "Fake Web Redirect" "show" "disabled"
             ;;
     esac
 }
@@ -831,32 +840,24 @@ twist_stop(){
         0)
             systemctl stop fail2ban
             componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[31;1mStopping Fail2ban Protect Service Failed... \033[0m"
-            else
-                echo -e "# \033[32;1mStopping Fail2ban Protect Service Success... \033[0m"
-            fi
+            componentstatus "\$?" "Stopping" "Fail2ban Protect"
             ;;
         1)
             echo -e "# \033[31;1mFail2ban Protect Service is Already Stopped... \033[0m"
             ;;
     esac
-    componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+    componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case \$? in
         0)
-            systemctl stop apache2
-            componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[31;1mStopping Apache2 Web Redirect Service Failed... \033[0m"
-            else
-                echo -e "# \033[32;1mStopping Apache2 Web Redirect Service Success... \033[0m"
-            fi
+            systemctl stop ${webservername}
+            componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
+            componentstatus "\$?" "Stopping" "Fake Web Redirect"
             ;;
         1)
-            echo -e "# \033[31;1mApache2 Web Redirect Protect Service is Already Stoppe d... \033[0m"
+            echo -e "# \033[31;1mFake Web Redirect Service is Already Stopped... \033[0m"
             ;;
         2)
-            componentps "$webservername" "Apache2 Web Redirect" "show" "disabled"
+            componentps "$webservername" "Fake Web Redirect" "show" "disabled"
             ;;
     esac
 }
@@ -963,7 +964,7 @@ EOF
         cat >> /var/www/html/index.html <<-EOF
 <head><meta http-equiv="refresh" content="0;url=http://${OBFSHOST}"></head>
 EOF
-        systemctl restart apache2
+        systemctl restart ${webservername}
     fi
     rngd -r /dev/urandom
     sleep 3

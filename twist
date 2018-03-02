@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.1 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.2 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -18,8 +18,8 @@ function shadowsocksconfig(){
     OBFS="tls"
     OBFSHOST="mzstatic.com"
     OBFSURI="/"
-    BBR="enable"
     FWS="enable"
+    BBR="enable"
 }
 
 function systemconfig(){
@@ -150,6 +150,8 @@ function uninstall_twist(){
     else
         rm -f /etc/network/if-pre-up.d/ip6tablesload
     fi
+    [ -d "/etc/twistbackup/firewalld" ] && cp -fr "/etc/twistbackup/firewalld" "/etc/firewalld"
+    [ -d "/etc/twistbackup/lib/firewalld" ] && cp -fr "/etc/twistbackup/lib/firewalld" "/usr/lib/firewalld"
     timemachine restore "/etc/twistbackup/crontab" "/etc/crontab"
     timemachine restore "/etc/twistbackup/rc.local" "/etc/rc.local"
     timemachine restore "/etc/twistbackup/.htaccess" "/var/www/html/.htaccess"
@@ -211,8 +213,13 @@ function systemdetecterr(){
 }
 
 function timemachine(){
-    [ -e "$2" ] && cp -f "${2}" "${3}"
-    [ "$1" = "backup" ] && { [ -e "$2" ] && cp -f "${2}" "${3}.old-${date}"; }
+    if [ "$1" = "backup" ]; then
+        if [ -e "$3" ]; then
+            [ -e "$2" ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
+        fi
+    else
+        [ -e "$2" ] && cp -f "${2}" "${3}"
+    fi
 }
 
 function serverrestart(){
@@ -251,10 +258,13 @@ function systemdetect(){
     fi
     if [ ! -z "$(which apt)" ]; then
         packagemanagertype="a"
+        webservername="apache"
     elif [ ! -z "$(which yum)" ]; then
         packagemanagertype="y"
+        webservername="httpd"
     elif [ ! -z "$(which pacman)" ]; then
         packagemanagertype="p"
+        webservername="apache"
     else
         systemdetecterr
     fi
@@ -385,7 +395,7 @@ function dependenciesinstall(){
         [ -e /etc/yum.repos.d/epel.repo ] || { yum -y install epel-release yum-utils || { echo -e "# [\033[31;1mCannot add EPEL repository. Aborting! \033[0m]"; exit 1; }; }
         yum -y install wget gawk grep curl sed git gcc swig gettext-devel autoconf automake make libtool pcre-devel perl-devel cpio xmlto asciidoc vixie-cron crontabs fail2ban net-tools bind-utils rng-tools expat-devel openssl-devel zlib-devel libev-devel c-ares-devel python-devel python-setuptools python-pip
         [ "$?" != "0" ] && dependenciesinstallerr "Install"
-        [ "$FWS" = "enable" ] && { yum -y install httpd || dependenciesinstallerr "Apache"; }
+        [ "$FWS" = "enable" ] && { yum -y install ${webservername} || dependenciesinstallerr "Apache"; }
     else
         pacman -Syyu --noconfirm || dependenciesinstallerr "Update and Upgrade"
         pacman -Syu --noconfirm wget gawk grep curl sed git gcc swig gettext autoconf automake make libtool pcre perl cpio xmlto asciidoc cronie fail2ban net-tools rng-tools openssl zlib c-ares libev python-devel python-setuptools python-pip python2-m2crypto
@@ -622,8 +632,19 @@ exit 0
 EOF
     if [ "$systemtype" = "0" ]; then
         systemctl start firewalld
+        if [ "$twistinstalled" = "false" ]; then
+            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twistbackup/firewalld"
+            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twistbackup/lib/firewalld"
+        else
+            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twistbackup/firewalld.old-${date}"
+            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twistbackup/lib/firewalld.old-${date}"
+        fi
         firewall-cmd --permanent --zone=public --add-port=${PORT}/tcp
         firewall-cmd --permanent --zone=public --add-port=${PORT}/udp
+        if [ "$FWS" = "enable" ]; then
+            firewall-cmd --zone=public --add-service=http
+            firewall-cmd --permanent --zone=public--add-service=http
+        fi
         firewall-cmd --reload
     fi
 }
@@ -671,7 +692,7 @@ EOF
 #!/bin/bash
 
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
-
+status="0"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
     echo -e "# \033[31;1mError: Shadowsocks-libev Config File\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mWas Lost... \033[0m"
     status="1"
@@ -681,33 +702,54 @@ ssserverpid(){
     if [ -r /var/run/shadowsocks-libev.pid ]; then
         read pid < /var/run/shadowsocks-libev.pid
         if [ -d "/proc/\${pid}" ]; then
+            [ "\$1" = "echo" ] && echo -e "# \033[32;1mShadowsocks-libev is Running... \033[0m"
+            status="0"
             return 0
         else
+            [ "\$1" = "echo" ] && echo -e "# \033[31;1mShadowsocks-libev is Stoped... \033[0m"
             rm -f /var/run/shadowsocks-libev.pid
+            status="1"
             return 1
         fi
     else
+        [ "\$1" = "echo" ] && echo -e "# \033[31;1mShadowsocks-libev is Stoped... \033[0m"
+        status="2"
         return 2
     fi
 }
 
-twist_status(){
-    echo -e "# [\033[34;1mTWIST Checking Shadowsocks Status...\033[0m]"
-    ssserverpid
-    case \$? in
+componentps(){
+    case "\$(pgrep \${1} | wc -l)" in
         0)
-            echo -e "# \033[32;1mShadowsocks-libev is Running... \033[0m"
-            status="0"
+            if [ "\$4" = "enable" ]; then
+                [ "\$3" = "echo" ] && echo -e "# \033[31;1m\${2} Service is Stoped... \033[0m"
+                return 1
+            else
+                [ "\$3" = "echo" ] && echo -e "# \033[34;1m\${2} Service is Disabled... \033[0m"
+                return 2
+            fi
             ;;
-        1|2)
-            echo -e "# \033[31;1mShadowsocks-libev is Stopped... \033[0m"
-            status="1"
+        *)
+            [ "\$3" = "echo" ] && echo -e "# \033[32;1m\${2} Service is Running... \033[0m"
+            return 0
             ;;
     esac
 }
 
+twist_status(){
+    echo -e "# [\033[34;1mTWIST Checking Server Status\033[0m]"
+    ssserverpid "echo"
+    componentps "fail2ban" "Fail2ban Protect" "echo" "enable"
+    componentps "$webservername" "Apache2 Web Redirect" "echo" "$FWS"
+    if [ -z "$(lsmod | grep bbr)" ]; then
+        echo -e "# \033[31;1mTCP BBR Support is Disabled... \033[0m"
+    else
+        echo -e "# \033[32;1mTCP BBR Support is Enabled... \033[0m"
+    fi
+}
+
 twist_start(){
-    echo -e "# [\033[34;1mTWIST Starting Shadowsocks Service...\033[0m]"
+    echo -e "# [\033[34;1mTWIST Starting Server Service\033[0m]"
     ssserverpid
     case \$? in
         0)
@@ -720,17 +762,48 @@ twist_start(){
             ssserverpid
             if [ "\$?" = "0" ]; then
                 echo -e "# \033[32;1mStarting Shadowsocks-libev Success... \033[0m"
-                status="0"
             else
                 echo -e "# \033[31;1mStarting Shadowsocks-libev Failed... \033[0m"
-                status="1"
             fi
+            ;;
+    esac
+    componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+    case \$? in
+        0)
+            echo -e "# \033[32;1mFail2ban Protect Service is Already Running... \033[0m"
+            ;;
+        1)
+            systemctl start fail2ban
+            componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[32;1mStarting Fail2ban Protect Service Success... \033[0m"
+            else
+                echo -e "# \033[31;1mStarting Fail2ban Protect Service Failed... \033[0m"
+            fi
+            ;;
+    esac
+    componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+    case \$? in
+        0)
+            echo -e "# \033[32;1mApache2 Web Redirect Service is Already Running... \033[0m"
+            ;;
+        1)
+            systemctl start apache2
+            componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[32;1mStarting Apache2 Web Redirect Service Success... \033[0m"
+            else
+                echo -e "# \033[31;1mStarting Apache2 Web Redirect Service Failed... \033[0m"
+            fi
+            ;;
+        2)
+            componentps "$webservername" "Apache2 Web Redirect" "show" "disabled"
             ;;
     esac
 }
 
 twist_stop(){
-    echo -e "# [\033[34;1mTWIST Stopping Shadowsocks Service...\033[0m]"
+    echo -e "# [\033[34;1mTWIST Stopping Server Service\033[0m]"
     echo -e "# \${date} TWIST Shadowsocks Protect Services Disabled " >> /var/log/twistprotect
     ssserverpid
     case \$? in
@@ -753,30 +826,65 @@ twist_stop(){
             status="0"
             ;;
     esac
+    componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+    case \$? in
+        0)
+            systemctl stop fail2ban
+            componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[31;1mStopping Fail2ban Protect Service Failed... \033[0m"
+            else
+                echo -e "# \033[32;1mStopping Fail2ban Protect Service Success... \033[0m"
+            fi
+            ;;
+        1)
+            echo -e "# \033[31;1mFail2ban Protect Service is Already Stopped... \033[0m"
+            ;;
+    esac
+    componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+    case \$? in
+        0)
+            systemctl stop apache2
+            componentps "$webservername" "Apache2 Web Redirect" "hide" "$FWS"
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[31;1mStopping Apache2 Web Redirect Service Failed... \033[0m"
+            else
+                echo -e "# \033[32;1mStopping Apache2 Web Redirect Service Success... \033[0m"
+            fi
+            ;;
+        1)
+            echo -e "# \033[31;1mApache2 Web Redirect Protect Service is Already Stoppe d... \033[0m"
+            ;;
+        2)
+            componentps "$webservername" "Apache2 Web Redirect" "show" "disabled"
+            ;;
+    esac
 }
 
 twist_restart(){
-    echo -e "# [\033[34;1mTWIST Restarting Shadowsocks Service...\033[0m]"
-    twist stop
-    twist start
+    echo -e "# [\033[34;1mTWIST Restarting Server Service\033[0m]"
+    echo -e "# \033[32;1mTwist Trying to Restart... \033[0m"
+    /usr/bin/twist stop
+    sleep 2
+    /usr/bin/twist start
 }
 
 twist_custom(){
-    echo -e "# [\033[34;1mTWIST Loading Shadowsocks Configuration using\033[0m \033[32;1mnano\033[0m \033[32;1mEditor\033[0m]"
+    echo -e "# [\033[34;1mTWIST Loading Shadowsocks Configuration\033[0m]"
     sleep 2
     sudo nano /etc/shadowsocks-libev/config.json
-    twist restart
+    /usr/bin/twist restart
 }
 
 twist_update(){
-    echo -e "# [\033[34;1mTWIST Preparing Update...\033[0m]"
+    echo -e "# [\033[34;1mTWIST Preparing Update\033[0m]"
     sleep 2
     sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh update && rm twist.sh
     status="0"
 }
 
 twist_uninstall(){
-    echo -e "# [\033[31;1mTWIST Preparing Uninstallation...\033[0m]"
+    echo -e "# [\033[31;1mTWIST Preparing Uninstallation\033[0m]"
     sleep 2
     sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh uninstall && rm twist.sh
     status="0"
@@ -787,8 +895,12 @@ case "\$1" in
         twist_\${1}
         ;;
     *)
-        echo "Usage: \$0 { status | start | stop | restart | custom | update | uninstall }"
-        status="0"
+        if [ -z "$1" ]; then
+            twist_status
+        else
+            echo "Usage: \$0 { status | start | stop | restart | custom | update | uninstall }"
+            status="0"
+        fi
         ;;
 esac
 exit \$status

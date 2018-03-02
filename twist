@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.4 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.5 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -698,7 +698,7 @@ date="\$(date +%Y-%m-%d-%H:%M:%S)"
 status="0"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
     echo -e "# \033[31;1mError: Shadowsocks-libev Config File\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mWas Lost... \033[0m"
-    status="1"
+    exit 1
 fi
 
 ssserverpid(){

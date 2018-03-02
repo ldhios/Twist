@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.7 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.8 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -68,19 +68,14 @@ function update_twist(){
     echo ""
     sleep 5
     rootness
-    systemconfig
-    if [ -f /usr/local/bin/ss-server ]; then
-        ssinstallpath="/usr/local/bin"
-    else
-        ssinstallpath="/usr/bin"
-    fi
     if ! grep -qs "Twist" /etc/sysctl.conf; then
+        twistprint banner nofile
+    else
         twist stop
         echo ""
         sleep 2
-    else
-        twistprint banner nofile
     fi
+    systemconfig
     selinuxdisable
     systemdetect
     dependenciesinstall
@@ -105,29 +100,18 @@ function uninstall_twist(){
     echo ""
     sleep 5
     rootness
+    if ! grep -qs "Twist" /etc/sysctl.conf; then
+        twistprint banner nofile
+    else
+        twist stop
+        echo ""
+        sleep 2
+    fi
     if [ -f /usr/local/bin/ss-server ]; then
         ssinstallpath="/usr/local/bin"
     else
         ssinstallpath="/usr/bin"
     fi
-    if grep -qs "Twist" /etc/sysctl.conf; then
-        twist stop
-        echo ""
-        sleep 2
-    else
-        twistprint banner nofile
-    fi
-    if grep -Eqi "Ubuntu|Debian|Raspbian|Arch Linux" /etc/*-release || grep -Eqi "Ubuntu|Debian|Raspbian|Arch Linux" /proc/version; then
-        update-rc.d -f shadowsocks remove
-        iptables -I INPUT -m state --state NEW -m tcp -p tcp --dport $PORT -j DROP
-        iptables -I INPUT -m state --state NEW -m udp -p udp --dport $PORT -j DROP
-    elif grep -Eqi "CentOS|Red Hat|Fedora" /etc/*-release || grep -Eqi "CentOS|Red Hat|Fedora" /proc/version; then
-        chkconfig --del shadowsocks
-        firewall-cmd --permanent --zone=public --remove-port=${PORT}/tcp
-        firewall-cmd --permanent --zone=public --remove-port=${PORT}/udp
-        firewall-cmd --reload
-    fi
-    ps -ef | grep -v grep | grep -i "ss-server"
     pushd ${ssinstallpath}
     rm -f ss-local ss-tunnel ss-server ss-manager ss-redir ss-nat obfs-local obfs-server
     popd
@@ -156,6 +140,7 @@ function uninstall_twist(){
     else
         rm -f /etc/network/if-pre-up.d/ip6tablesload
     fi
+    timemachine restore "/etc/twistbackup/crontab" "/etc/crontab"
     timemachine restore "/etc/twistbackup/rc.local" "/etc/rc.local"
     timemachine restore "/etc/twistbackup/.htaccess" "/var/www/html/.htaccess"
     timemachine restore "/etc/twistbackup/index.html" "/var/www/html/index.html"
@@ -294,6 +279,9 @@ function systemdetect(){
             pacman -Syu --noconfirm gawk curl net-tools || dependenciesinstallerr "Install"
         fi
         clear
+    fi
+    if ! grep -qs "Twist" /etc/sysctl.conf; then
+        twistinstalled="false"
     fi
     MAKECORES="$(grep -c ^processor /proc/cpuinfo)"
     [ -z "$MAKECORES" ] && MAKECORES="1"
@@ -529,7 +517,7 @@ function sslibevconfigure(){
     "fast_open":true,
 }
 EOF
-    if ! grep -qs "Twist" /etc/sysctl.conf; then
+    if [ "$twistinstalled" = "false" ]; then
         timemachine backup "/etc/sysctl.conf" "/etc/twistbackup/sysctl.conf"
         cat >> /etc/sysctl.conf <<-EOF
 
@@ -585,8 +573,6 @@ EOF
             timemachine backup "/etc/pam.d/login" "/etc/twistbackup/login"
             [ "$systemtype" = "0" ] && echo "session    required     pam_limits.so" >> /etc/pam.d/login
         fi
-        [ -e /etc/crontab ] || touch /etc/crontab
-        echo "*/5 * * * * root bash /root/twistprotect" >> /etc/crontab
     fi
 }
 
@@ -636,7 +622,10 @@ function servicesstart(){
     else
         ssserverpath="/usr/bin/ss-server"
     fi
-    if ! grep -qs "Twist" /etc/sysctl.conf; then
+    if [ "$twistinstalled" = "false" ]; then
+        [ -e /etc/crontab ] && cp -f "/etc/crontab" "/etc/twistbackup/crontab"
+        [ -e /etc/crontab ] || touch /etc/crontab
+        echo "*/5 * * * * root bash /root/twistprotect" >> /etc/crontab
         [ -e /etc/rc.local ] && cp -f "/etc/rc.local" "/etc/twistbackup/rc.local"
         [ -e /etc/rc.local ] || echo "#!/bin/bash" > /etc/rc.local
         sed --follow-symlinks -i '/^exit 0/d' /etc/rc.local
@@ -800,15 +789,14 @@ twistprotectenable(){
     fi
 }
 
-if [ -e /var/log/twistprotect ]; then
-	twistprotectenable
-else
-    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled \033[0m"
-fi
-
 EOF
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
+    chmod 600 /etc/shadowsocks-libev/config.json
     [ "$systemtype" = "0" ] && systemctl --now mask firewalld
+    systemctl enable iptables fail2ban
+    iptables-restore < /etc/iptables.rules
+    ip6tables-restore < /etc/ip6tables.rules
+    systemctl restart fail2ban
     if [ "$packagemanagertype" = "p" ]; then
         systemctl enable cronie.service
         systemctl start cronie.service
@@ -816,14 +804,10 @@ EOF
         systemctl enable cron.service
         systemctl start cron.service
     fi
-    systemctl enable iptables fail2ban
-    iptables-restore < /etc/iptables.rules
-    ip6tables-restore < /etc/ip6tables.rules
-    systemctl restart fail2ban
     sysctl -p
     ldconfig
     if [ "$FWS" = "enable" ]; then
-        if ! grep -qs "Twist" /etc/sysctl.conf; then
+        if [ "$twistinstalled" = "false" ]; then
             [ -e /var/www/html/.htaccess ] && cp -f "/var/www/html/.htaccess" "/etc/twistbackup/.htaccess"
             [ -e /var/www/html/index.html ] && cp -f "/var/www/html/index.html" "/etc/twistbackup/index.html"
         else
@@ -849,6 +833,16 @@ EOF
     echo ""
     twist start && twist status
     echo ""
+    if [ "$twistinstalled" = "false" ]; then
+        cat >> /root/twistprotect <<-EOF
+if [ -e /var/log/twistprotect ]; then
+    twistprotectenable
+else
+    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled \033[0m"
+fi
+
+EOF
+    fi
     sleep 2
 }
 

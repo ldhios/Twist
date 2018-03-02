@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.1.8 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.1.9 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -68,16 +68,19 @@ function update_twist(){
     echo ""
     sleep 5
     rootness
-    if ! grep -qs "Twist" /etc/sysctl.conf; then
-        twistprint banner nofile
-    else
-        twist stop
-        echo ""
-        sleep 2
-    fi
     systemconfig
     selinuxdisable
     systemdetect
+    if [ "$twistinstalled" = "false" ]; then
+        twistprint banner nofile
+    else
+        if [ -r /var/run/shadowsocks-libev.pid ]; then
+            read pid < /var/run/shadowsocks-libev.pid
+            [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
+            kill -9 $pid
+            rm -f /var/run/shadowsocks-libev.pid
+        fi
+    fi
     dependenciesinstall
     sslibevinstall
     echo ""
@@ -103,6 +106,14 @@ function uninstall_twist(){
     if ! grep -qs "Twist" /etc/sysctl.conf; then
         twistprint banner nofile
     else
+        sed -i "/# Twist/d" /etc/sysctl.conf
+        sed -i "/twistprotect/d" /etc/crontab
+        if [ "$packagemanagertype" = "p" ]; then
+            systemctl restart cronie.service
+        else
+            systemctl restart cron.service
+        fi
+        rm -f /root/twistprotect
         twist stop
         echo ""
         sleep 2
@@ -121,10 +132,8 @@ function uninstall_twist(){
     pushd /usr/local/share/man/man1
     rm -f ss-local.1 ss-tunnel.1 ss-server.1 ss-manager.1 ss-redir.1 ss-nat.1
     popd
-    rm -f /usr/local/include/shadowsocks.h
-    rm -f /usr/local/share/man/man8/shadowsocks-libev.8
-    rm -fr /usr/local/share/doc/shadowsocks-libev
-    rm -fr /etc/shadowsocks-libev
+    rm -f /usr/local/include/shadowsocks.h /usr/local/share/man/man8/shadowsocks-libev.8
+    rm -fr /usr/local/share/doc/shadowsocks-libev /etc/shadowsocks-libev
     timemachine restore "/etc/twistbackup/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
     timemachine restore "/etc/twistbackup/limits.conf" "/etc/security/limits.conf"
     timemachine restore "/etc/twistbackup/login" "/etc/pam.d/login"
@@ -145,15 +154,8 @@ function uninstall_twist(){
     timemachine restore "/etc/twistbackup/.htaccess" "/var/www/html/.htaccess"
     timemachine restore "/etc/twistbackup/index.html" "/var/www/html/index.html"
     rm -fr /etc/twistbackup
-    rm -f /root/twistprotect
-    sed -i "/twistprotect/d" /etc/crontab
-    sed -i "/# Twist/d" /etc/sysctl.conf
-    if [ "$packagemanagertype" = "p" ]; then
-        systemctl restart cronie.service
-    else
-        systemctl restart cron.service
-    fi
     systemctl restart fail2ban apache2
+    [ -e /var/www/html/index.html ] || systemctl stop apache2
     ldconfig
     clear
     twistprint
@@ -201,12 +203,15 @@ function sslibevinstallerr(){
     exit 1
 }
 
+function systemdetecterr(){
+    echo -e "# [\033[31;1mTwist could only run on Ubuntu, Debian, Raspbian, Arch Linux, CentOS, Red Hat or Fedora. Aborating! \033[0m]"
+    echo ""
+    exit 1
+}
+
 function timemachine(){
-    if [ "$1" = "backup" ]; then
-        [ -e "$2" ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
-    elif [ "$1" = "restore" ]; then
-        [ -e "$2" ] && cp -f "${2}" "${3}"
-    fi
+    [ -e "$2" ] && cp -f "${2}" "${3}"
+    [ "$1" = "backup" ] && { [ -e "$2" ] && cp -f "${2}" "${3}.old-${date}"; }
 }
 
 function rootness(){
@@ -231,9 +236,7 @@ function systemdetect(){
     elif grep -Eqi "CentOS|Red Hat|Fedora" /etc/*-release || grep -Eqi "CentOS|Red Hat|Fedora" /proc/version; then
         systemtype="0"
     else
-        echo -e "# [\033[31;1mTwist could only run on Ubuntu, Debian, Raspbian, Arch Linux, CentOS, Red Hat or Fedora. Aborating! \033[0m]"
-        echo ""
-        exit 1
+        systemdetecterr
     fi
     if [ ! -z "$(which apt)" ]; then
         packagemanagertype="a"
@@ -242,9 +245,7 @@ function systemdetect(){
     elif [ ! -z "$(which pacman)" ]; then
         packagemanagertype="p"
     else
-        echo -e "# [\033[31;1mTwist could only run on Ubuntu, Debian, Raspbian, Arch Linux, CentOS, Red Hat or Fedora. Aborating! \033[0m]"
-        echo ""
-        exit 1
+        systemdetecterr
     fi
     if [ -f /proc/user_beancounters ]; then
         BBR="disable"
@@ -326,7 +327,7 @@ function systemdetect(){
             ethstatus="$(cat /sys/class/net/${eth}/operstate)"
             if [ -z "$ethstatus" ] || [ "$ethstatus" = "down" ]; then
                 echo ""
-                echo -e "# [\033[31;1mThe Network Interface Your entered is not available. Aborting! \033[0m]"
+                echo -e "# [\033[31;1mThe Network Interface:${eth} you entered is not available. Aborting! \033[0m]"
                 echo ""
                 exit 1
             else
@@ -344,9 +345,9 @@ function systemdetect(){
         read -p "Input Your Public IP:" publicip
         if ! printf %s "$publicip" | grep -Eq "$IPREGEX"; then
             echo ""
-            echo -e "# [\033[31;1mThe IP:${publicip} address you entered is not vailed. You may unable to connect! \033[0m]"
+            echo -e "# [\033[31;1mThe IP:${publicip} you entered is not vailed. Aborting! \033[0m]"
             echo ""
-            sleep 3
+            exit 1
         else
             PUBLICIP="$publicip"
             echo ""
@@ -409,30 +410,30 @@ function kernelupdate(){
     if [ "$packagemanagertype" = "a" ]; then
         KERNELURL="http://kernel.ubuntu.com/~kernel-ppa/mainline/"
         KERNELVER="$(wget -qO- ${KERNELURL} | awk -F'\"v' '/v[4-9]./{print $2}' | cut -d/ -f1 | grep -v -  | sort -V | tail -1)"
-        [ -z "$KERNELVER" ] && { BBR="disable"; echo -e "# [\033[31;1mCannot get the newest linux kernel verison, BBR will not enable on your server! \033[0m]"; }
+        [ -z "$KERNELVER" ] && { BBR="disable"; echo -e "# [\033[31;1mCannot get the newest linux kernel verison, bbr disabled! \033[0m]"; }
         if [ "$BBR" = "enable" ]; then
             SYSTYPE="$(dpkg --print-architecture)"
             KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/${SYSTYPE}.deb/{print $2}' | cut -d'<' -f1 | head -1)"
             [ "$BBR" = "enable" ] && wget -t 3 -T 30 -nv -O "$KERNEL" "${KERNELURL}v${KERNELVER}/${KERNEL}"
-            [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || { echo ""; echo -e "# [\033[31;1mCannot update kernel, BBR will not enable on your server! \033[0m]"; echo ""; sleep 3; BBR="disable"; }; }
+            [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }; }
             [ "$BBR" = "enable" ] && { dpkg -l | grep linux-image; rm -f $KERNEL; update-grub; }
         fi
     elif [ "$packagemanagertype" = "y" ]; then
         rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org || { echo ""; echo -e "# [\033[31;1mCannot get ELRepo key, you may unable to install ELRepo packages! \033[0m]"; echo ""; sleep 3; }
         if grep -qs "release 7" /etc/*-release; then
             rpm -Uvh $ELREPOVER7 || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
-            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, BBR will not enable on your server! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && grub2-set-default 0
         elif grep -qs "release 6" /etc/*-release; then
             rpm -Uvh $ELREPOVER6 || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo Repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
-            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, BBR will not enable on your server! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && sed -i 's/^default=.*/default=0/g' /boot/grub/grub.conf
         fi
     elif [ "$packagemanagertype" = "p" ]; then
         if grep -Eqi "IgnorePkg|IgnoreGroup" /etc/pacman.conf; then
             sed -i "/IgnorePkg/d;/IgnoreGroup/d" /etc/pacman.conf
         fi
-        pacman -Syyu --noconfirm || { echo ""; echo -e "# [\033[31;1mCannot update kernel and sources, BBR will not enable on your server! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+        pacman -Syyu --noconfirm || { echo ""; echo -e "# [\033[31;1mCannot update kernel and sources, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
     fi
     [ "$BBR" = "enable" ] && { kernelupdated="true"; serverrestart="true"; }
     kernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
@@ -658,7 +659,7 @@ date="\$(date +%Y-%m-%d-%H:%M:%S)"
 
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
     echo -e "# \033[31;1mError: Shadowsocks-libev Config File\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mWas Lost... \033[0m"
-    exit 1
+    status="1"
 fi
 
 ssserverpid(){
@@ -681,11 +682,11 @@ twist_status(){
     case \$? in
         0)
             echo -e "# \033[32;1mShadowsocks-libev is Running... \033[0m"
-            exit 0
+            status="0"
             ;;
         1|2)
             echo -e "# \033[31;1mShadowsocks-libev is Stopped... \033[0m"
-            exit 1
+            status="1"
             ;;
     esac
 }
@@ -696,7 +697,7 @@ twist_start(){
     case \$? in
         0)
             echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
-            exit 0
+            status="0"
             ;;
         1|2)
             ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
@@ -704,10 +705,10 @@ twist_start(){
             ssserverpid
             if [ "\$?" = "0" ]; then
                 echo -e "# \033[32;1mStarting Shadowsocks-libev Success... \033[0m"
-                exit 0
+                status="0"
             else
                 echo -e "# \033[31;1mStarting Shadowsocks-libev Failed... \033[0m"
-                exit 1
+                status="1"
             fi
             ;;
     esac
@@ -723,12 +724,18 @@ twist_stop(){
             kill -9 \$pid
             rm -f /var/run/shadowsocks-libev.pid
             [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
-            echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
-            exit 0
+            ssserverpid
+            if [ "\$?" = "0" ]; then
+                echo -e "# \033[31;1mStopping Shadowsocks-libev Failed... \033[0m"
+                status="1"
+            else
+                echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
+                status="0"
+            fi
             ;;
         1|2)
             echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
-            exit 1
+            status="0"
             ;;
     esac
 }
@@ -750,12 +757,14 @@ twist_update(){
     echo -e "# [\033[34;1mTWIST Preparing Update...\033[0m]"
     sleep 2
     sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh update && rm twist.sh
+    status="0"
 }
 
 twist_uninstall(){
     echo -e "# [\033[31;1mTWIST Preparing Uninstallation...\033[0m]"
     sleep 2
     sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh uninstall && rm twist.sh
+    status="0"
 }
 
 case "\$1" in
@@ -764,9 +773,10 @@ case "\$1" in
         ;;
     *)
         echo "Usage: \$0 { status | start | stop | restart | custom | update | uninstall }"
-        exit 1
+        status="0"
         ;;
 esac
+exit \$status
 
 EOF
     cat > /root/twistprotect <<-EOF
@@ -866,15 +876,17 @@ function servicesstatus(){
     fi
 }
 
-action="$1"
-[ -z "$1" ] && action="install"
-case "$action" in
+case "$1" in
     install|update|uninstall)
-        ${action}_twist
+        ${1}_twist
         exit 0
         ;;
     *)
-        echo "Usage: $0 { install | update | uninstall }"
-        exit 1
+        if [ -z "$1" ]; then
+            install_twist
+        else
+            echo "Usage: $0 { install | update | uninstall }"
+            exit 1
+        fi
         ;;
 esac

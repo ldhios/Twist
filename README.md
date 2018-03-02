@@ -30,11 +30,15 @@ sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twi
 ```
 
 ## Attention
-Please make sure that your server was able to **Connect to the Internet and Opened these Inboard & Outboard Ports** below. It required by shadowsocks-libev service and apache fake service based on your configurations. And It will be automatically configured on your System Side but will not be on the Server Management Console. You may manually open these port
+- Please make sure that your server was able to **Connect to the Internet and Opened these Inboard & Outboard Ports** below. It required by shadowsocks-libev service and apache fake service based on your configurations. And It will be automatically configured on your System Side but will not be on the Server Management Console. You may manually open these port
 ```txt
 UDP 443
 TCP 80
 TCP 443
+```
+- Twist will make changes to your Server, so it is necessary to backup your files that stored on the Server. And Twist will automatically backup files what it makes changes to while Install and restore them while Uninstall. The default back path is listed here
+```txt
+/etc/twistbackup
 ```
 
 ## Custom

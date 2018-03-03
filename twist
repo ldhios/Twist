@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.9 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.0 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -311,7 +311,7 @@ function systemdetect(){
     [ -z "$MAKECORES" ] && MAKECORES="1"
     kernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
     kernelverheaderold="$kernelverheader"
-    if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "1" ]; then
+    if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "0" ]; then
         [ "$BBR" = "enable" ] && serverrestart="true"
     fi
     if [ "$(getconf LONG_BIT)" = "64" ]; then
@@ -411,7 +411,7 @@ function dependenciesinstall(){
 function tcpbbrenable(){
     if [ "$BBR" = "enable" ]; then
         timemachine backup "/etc/sysctl.conf" "/etc/twistbackup/sysctl.conf"
-        if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "0" ] || [ "$kernelupdated" = "true" ]; then
+        if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "1" ] || [ "$kernelupdated" = "true" ]; then
             if [ ! "$(sysctl net.ipv4.tcp_available_congestion_control | awk '{print $3}')" = "bbr" ]; then
                 sed -i '/net.ipv4.tcp_congestion_control/d' /etc/sysctl.conf
                 echo "net.ipv4.tcp_congestion_control = bbr" >> /etc/sysctl.conf
@@ -673,7 +673,7 @@ EOF
 
 function servicesstart(){
     recheckkernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
-    if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheaderold}" '{print($1>ver)? "1":"0"}') -eq "0" ]; then
+    if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheaderold}" '{print($1>ver)? "1":"0"}') -eq "1" ]; then
         serverrestart="true"
         [ "$recheckkernelverheader" = "$kernelverheaderold" ] && serverrestart="false"
     fi

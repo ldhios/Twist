@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.6 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.7 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -435,8 +435,30 @@ function kernelupdate(){
         KERNELVER="$(wget -qO- ${KERNELURL} | awk -F'\"v' '/v[4-9]./{print $2}' | cut -d/ -f1 | grep -v -  | sort -V | tail -1)"
         [ -z "$KERNELVER" ] && { BBR="disable"; echo -e "# [\033[31;1mCannot get the newest linux kernel verison, bbr disabled! \033[0m]"; }
         if [ "$BBR" = "enable" ]; then
-            SYSTYPE="$(dpkg --print-architecture)"
-            KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/${SYSTYPE}.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+            case "$(dpkg --print-architecture)" in
+                amd64)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/amd64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                i386)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/i386.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                armhf)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/armhf.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                arm64)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/arm64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                ppc64el)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/ppc64el.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                s390x)
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/s390x.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    ;;
+                *)
+                    BBR="disable"
+                    echo -e "# [\033[31;1mCannot get the newest linux kernel verison, bbr disabled! \033[0m]"
+                    ;;
+            esac
             [ "$BBR" = "enable" ] && wget -t 3 -T 30 -nv -O "$KERNEL" "${KERNELURL}v${KERNELVER}/${KERNEL}"
             [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }; }
             [ "$BBR" = "enable" ] && { dpkg -l | grep linux-image; rm -f $KERNEL; update-grub; }
@@ -734,14 +756,17 @@ componentps(){
 }
 
 componentstatus(){
-    if [ "\$2" = "Starting" ]; then
-        echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
-        echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
-    else
-        echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
-        echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
-    fi
-    case \$1 in
+    case "\$2" in
+        Starting)
+            echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+            echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+            ;;
+        *)
+            echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+            echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+            ;;
+    esac
+    case "\$1" in
         0)
             echo -e "\${echostatusa}"
             ;;
@@ -756,7 +781,7 @@ twist_status(){
     ssserverpid "echo"
     componentps "fail2ban" "Fail2ban Protect" "echo" "enable"
     componentps "$webservername" "Fake Web Redirect" "echo" "$FWS"
-    if [ "$(lsmod | grep bbr)" = "" ]; then
+    if [ "\$(lsmod | grep bbr)" = "" ]; then
         echo -e "# \033[31;1mTCP BBR Support is Disabled... \033[0m"
     else
         echo -e "# \033[32;1mTCP BBR Support is Enabled... \033[0m"
@@ -766,7 +791,7 @@ twist_status(){
 twist_start(){
     echo -e "# [\033[34;1mTWIST Starting Server Service\033[0m]"
     ssserverpid
-    case \$? in
+    case "\$?" in
         0)
             echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
             status="0"
@@ -779,7 +804,7 @@ twist_start(){
             ;;
     esac
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-    case \$? in
+    case "\$?" in
         0)
             echo -e "# \033[32;1mFail2ban Protect Service is Already Running... \033[0m"
             ;;
@@ -790,7 +815,7 @@ twist_start(){
             ;;
     esac
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
-    case \$? in
+    case "\$?" in
         0)
             echo -e "# \033[32;1mFake Web Redirect Service is Already Running... \033[0m"
             ;;
@@ -809,7 +834,7 @@ twist_stop(){
     echo -e "# [\033[34;1mTWIST Stopping Server Service\033[0m]"
     echo -e "# \${date} TWIST Shadowsocks Protect Services Disabled " >> /var/log/twistprotect
     ssserverpid
-    case \$? in
+    case "\$?" in
         0)
             [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
             kill -9 \$pid
@@ -824,7 +849,7 @@ twist_stop(){
             ;;
     esac
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-    case \$? in
+    case "\$?" in
         0)
             systemctl stop fail2ban
             componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
@@ -835,7 +860,7 @@ twist_stop(){
             ;;
     esac
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
-    case \$? in
+    case "\$?" in
         0)
             systemctl stop ${webservername}
             componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"

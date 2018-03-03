@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.1 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.2 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -77,7 +77,7 @@ function update_twist(){
     else
         if [ -r /var/run/shadowsocks-libev.pid ]; then
             read pid < /var/run/shadowsocks-libev.pid
-            [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" > /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
+            [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
             kill -9 $pid
             rm -f /var/run/shadowsocks-libev.pid
         fi
@@ -821,7 +821,7 @@ twist_stop(){
     echo -e "# \${date} TWIST Shadowsocks Protect Services Disabled " >> /var/log/twistprotect
     ssserverstatus
     if [ "\$?" = "0" ]; then
-        [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" > /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
+        [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
         kill -9 \$pid
         rm -f /var/run/shadowsocks-libev.pid
         [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev

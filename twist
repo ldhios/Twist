@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.7 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.8 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -713,11 +713,11 @@ EOF
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
 status="0"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
-    echo -e "# \033[31;1mError: Shadowsocks-libev Config File\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mWas Lost... \033[0m"
+    echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mis not found... \033[0m"
     exit 1
 fi
 
-ssserverpid(){
+ssserverstatus(){
     if [ -r /var/run/shadowsocks-libev.pid ]; then
         read pid < /var/run/shadowsocks-libev.pid
         if [ -d "/proc/\${pid}" ]; then
@@ -738,47 +738,38 @@ ssserverpid(){
 }
 
 componentps(){
-    case "\$(pgrep \${1} | wc -l)" in
-        0)
-            if [ "\$4" = "enable" ]; then
-                [ "\$3" = "echo" ] && echo -e "# \033[31;1m\${2} Service is Stoped... \033[0m"
-                return 1
-            else
-                [ "\$3" = "echo" ] && echo -e "# \033[34;1m\${2} Service is Disabled... \033[0m"
-                return 2
-            fi
-            ;;
-        *)
-            [ "\$3" = "echo" ] && echo -e "# \033[32;1m\${2} Service is Running... \033[0m"
-            return 0
-            ;;
-    esac
+    if [ "\$(pgrep \${1} | wc -l)" = "0" ]; then
+        if [ "\$4" = "enable" ]; then
+            [ "\$3" = "echo" ] && echo -e "# \033[31;1m\${2} Service is Stoped... \033[0m"
+            return 1
+        else
+            [ "\$3" = "echo" ] && echo -e "# \033[34;1m\${2} Service is Disabled... \033[0m"
+            return 2
+        fi
+    else
+        [ "\$3" = "echo" ] && echo -e "# \033[32;1m\${2} Service is Running... \033[0m"
+        return 0
+    fi
 }
 
-componentstatus(){
-    case "\$2" in
-        Starting)
-            echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
-            echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
-            ;;
-        *)
-            echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
-            echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
-            ;;
-    esac
-    case "\$1" in
-        0)
-            echo -e "\${echostatusa}"
-            ;;
-        *)
-            echo -e "\${echostatusb}"
-            ;;
-    esac
+echostatus(){
+    if [ "\$2" = "Starting" ]; then
+        echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+        echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+    else
+        echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+        echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+    fi
+    if [ "\$1" = "0" ]; then
+        echo -e "\${echostatusa}"
+    else
+        echo -e "\${echostatusb}"
+    fi
 }
 
 twist_status(){
     echo -e "# [\033[34;1mTWIST Checking Server Status\033[0m]"
-    ssserverpid "echo"
+    ssserverstatus "echo"
     componentps "fail2ban" "Fail2ban Protect" "echo" "enable"
     componentps "$webservername" "Fake Web Redirect" "echo" "$FWS"
     if [ "\$(lsmod | grep bbr)" = "" ]; then
@@ -790,30 +781,24 @@ twist_status(){
 
 twist_start(){
     echo -e "# [\033[34;1mTWIST Starting Server Service\033[0m]"
-    ssserverpid
-    case "\$?" in
-        0)
-            echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
-            status="0"
-            ;;
-        1|2)
-            ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
-            [ -e /var/log/twistprotect ] || touch /var/log/twistprotect
-            ssserverpid
-            componentstatus "\$?" "Starting" "Shadowsocks-libev"
-            ;;
-    esac
+    ssserverstatus
+    if [ "\$?" = "0" ]; then
+        echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
+        status="0"
+    else
+        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+        [ -e /var/log/twistprotect ] || touch /var/log/twistprotect
+        ssserverstatus
+        echostatus "\$?" "Starting" "Shadowsocks-libev"
+    fi
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-    case "\$?" in
-        0)
-            echo -e "# \033[32;1mFail2ban Protect Service is Already Running... \033[0m"
-            ;;
-        1)
-            systemctl start fail2ban
-            componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-            componentstatus "\$?" "Starting" "Fail2ban Protect"
-            ;;
-    esac
+    if [ "\$?" = "0" ]; then
+        echo -e "# \033[32;1mFail2ban Protect Service is Already Running... \033[0m"
+    else
+        systemctl start fail2ban
+        componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+        echostatus "\$?" "Starting" "Fail2ban Protect"
+    fi
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case "\$?" in
         0)
@@ -822,7 +807,7 @@ twist_start(){
         1)
             systemctl start ${webservername}
             componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
-            componentstatus "\$?" "Starting" "Fake Web Redirect"
+            echostatus "\$?" "Starting" "Fake Web Redirect"
             ;;
         2)
             componentps "$webservername" "Fake Web Redirect" "show" "disabled"
@@ -833,38 +818,32 @@ twist_start(){
 twist_stop(){
     echo -e "# [\033[34;1mTWIST Stopping Server Service\033[0m]"
     echo -e "# \${date} TWIST Shadowsocks Protect Services Disabled " >> /var/log/twistprotect
-    ssserverpid
-    case "\$?" in
-        0)
-            [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
-            kill -9 \$pid
-            rm -f /var/run/shadowsocks-libev.pid
-            [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
-            ssserverpid
-            componentstatus "\$?" "Stopping" "Shadowsocks-libev"
-            ;;
-        1|2)
-            echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
-            status="0"
-            ;;
-    esac
+    ssserverstatus
+    if [ "\$?" = "0" ]; then
+        [ -e /var/log/twistprotect ] && { cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
+        kill -9 \$pid
+        rm -f /var/run/shadowsocks-libev.pid
+        [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
+        ssserverstatus
+        echostatus "\$?" "Stopping" "Shadowsocks-libev"
+    else
+        echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
+        status="0"
+    fi
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-    case "\$?" in
-        0)
-            systemctl stop fail2ban
-            componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
-            componentstatus "\$?" "Stopping" "Fail2ban Protect"
-            ;;
-        1)
-            echo -e "# \033[31;1mFail2ban Protect Service is Already Stopped... \033[0m"
-            ;;
-    esac
+    if [ "\$?" = "0" ]; then
+        systemctl stop fail2ban
+        componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
+        echostatus "\$?" "Stopping" "Fail2ban Protect"
+    else
+        echo -e "# \033[31;1mFail2ban Protect Service is Already Stopped... \033[0m"
+    fi
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case "\$?" in
         0)
             systemctl stop ${webservername}
             componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
-            componentstatus "\$?" "Stopping" "Fake Web Redirect"
+            echostatus "\$?" "Stopping" "Fake Web Redirect"
             ;;
         1)
             echo -e "# \033[31;1mFake Web Redirect Service is Already Stopped... \033[0m"
@@ -890,23 +869,26 @@ twist_custom(){
     /usr/bin/twist restart
 }
 
-twist_update(){
-    echo -e "# [\033[34;1mTWIST Preparing Update\033[0m]"
+twistdo(){
+    echo -e "# [\033[34;1mTWIST Preparing \${2}\033[0m]"
     sleep 2
-    sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh update && rm twist.sh
-    status="0"
-}
-
-twist_uninstall(){
-    echo -e "# [\033[31;1mTWIST Preparing Uninstallation\033[0m]"
-    sleep 2
-    sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && chmod -x twist.sh && bash twist.sh uninstall && rm twist.sh
-    status="0"
+    sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && { chmod -x twist.sh; bash twist.sh \${1}; rm twist.sh; }
+    if [ "\$?" = "0" ]; then
+        status="0"
+    else
+        status="1"
+    fi
 }
 
 case "\$1" in
-    status|start|stop|restart|custom|update|uninstall)
+    status|start|stop|restart|custom)
         twist_\${1}
+        ;;
+    update)
+        twistdo "update" "Update"
+        ;;
+    uninstall)
+        twistdo "uninstall" "Uninstall"
         ;;
     *)
         if [ -z "$1" ]; then
@@ -924,26 +906,29 @@ EOF
 #!/bin/bash
 
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
-echo -e "# [\033[34;1mTWIST Shadowsocks Protect Services\033[0m \033[32;1m/var/log/twistprotect\033[0m]"
+echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m \033[32;1m/var/log/twistprotect\033[0m]"
 
-twistprotectenable(){
+twistprotect(){
     echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled \033[0m"
-    echo -e "# \${date} TWIST Shadowsocks Protect Services Enabled " >> /var/log/twistprotect
-    status=\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')
-    if [ -z \$status ]; then
-        echo -e "# \033[31;1mShadowsocks Stopped Detected... \033[0m"
-        echo -e "# \${date} Shadowsocks Stopped Detected " >> /var/log/twistprotect
-        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid || echo "# \${date} Shadowsocks Unable to Run " >> /var/log/twistprotect
-    else
-        echo -e "# \033[32;1mShadowsocks Running Detected... \033[0m"
-        echo -e "# \${date} Shadowsocks Running Detected " >> /var/log/twistprotect
+    if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
+        echo -e "# \033[31;1mShadowsocks-libev Service Stopped Detected \033[0m"
+        echo -e "# \${date} Shadowsocks-libev Service Stopped Detected " >> /var/log/twistprotect
+        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+        if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
+            echo "# \${date} Shadowsocks-libev Service Start Failed " >> /var/log/twistprotect
+            echo "# \${date} TWIST Shadowsocks Protect Services Disabled Due To Error " >> /var/log/twistprotect
+            cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"
+            rm -f /var/log/twistprotect
+        else
+            echo "# \${date} Shadowsocks-libev Service Start Success " >> /var/log/twistprotect
+        fi
     fi
 }
 
 EOF
     timemachine backup "/etc/crontab" "/etc/twistbackup/crontab"
     [ -e /etc/crontab ] || touch /etc/crontab
-    echo "*/5 * * * * root bash /root/twistprotect" >> /etc/crontab
+    echo "*/1 * * * * root bash /root/twistprotect" >> /etc/crontab
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
     chmod 600 /etc/shadowsocks-libev/config.json
     [ "$systemtype" = "0" ] && systemctl --now mask firewalld
@@ -990,7 +975,7 @@ EOF
     if [ "$twistinstalled" = "false" ]; then
         cat >> /root/twistprotect <<-EOF
 if [ -e /var/log/twistprotect ]; then
-    twistprotectenable
+    twistprotect
 else
     echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled \033[0m"
 fi

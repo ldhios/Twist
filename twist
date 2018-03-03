@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.5 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.6 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -23,16 +23,16 @@ function shadowsocksconfig(){
 }
 
 function systemconfig(){
-    IPREGEX="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
-    ETH=""
-    PUBLICIP=""
-    PUBLICIPv6=""
-    ELREPOVER7="http://www.elrepo.org/elrepo-release-7.0-3.el7.elrepo.noarch.rpm"
-    ELREPOVER6="http://www.elrepo.org/elrepo-release-6-8.el6.elrepo.noarch.rpm"
     libsodiumver=""
     mbedtlsver=""
     sslibevtag=""
     ssobfstag=""
+    elrepover7="7.0-3"
+    elrepover6="6-8"
+    ETH=""
+    PUBLICIP=""
+    PUBLICIPv6=""
+    IPREGEX="^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
 }
 
 function install_twist(){
@@ -444,11 +444,11 @@ function kernelupdate(){
     elif [ "$packagemanagertype" = "y" ]; then
         rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org || { echo ""; echo -e "# [\033[31;1mCannot get ELRepo key, you may unable to install ELRepo packages! \033[0m]"; echo ""; sleep 3; }
         if grep -qs "release 7" /etc/*-release; then
-            rpm -Uvh $ELREPOVER7 || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover7}.e17.elrepo.noarch.rpm" || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && grub2-set-default 0
         elif grep -qs "release 6" /etc/*-release; then
-            rpm -Uvh $ELREPOVER6 || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo Repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover6}.e16.elrepo.noarch.rpm" || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo Repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
             [ "$BBR" = "enable" ] && sed -i 's/^default=.*/default=0/g' /boot/grub/grub.conf
         fi
@@ -643,10 +643,7 @@ EOF
         fi
         firewall-cmd --permanent --zone=public --add-port=${PORT}/tcp
         firewall-cmd --permanent --zone=public --add-port=${PORT}/udp
-        if [ "$FWS" = "enable" ]; then
-            firewall-cmd --zone=public --add-service=http
-            firewall-cmd --permanent --zone=public--add-service=http
-        fi
+        [ "$FWS" = "enable" ] && firewall-cmd --permanent --zone=public --add-port=80/tcp
         firewall-cmd --reload
     fi
 }
@@ -655,7 +652,7 @@ function servicesstart(){
     recheckkernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
     if [ $(echo ${recheckkernelverheader} | awk -v ver="${kernelverheaderold}" '{print($1>ver)? "1":"0"}') -eq "0" ]; then
         serverrestart="true"
-        [ "$recheckkernelverheader" = "kernelverheaderold" ] && serverrestart="false"
+        [ "$recheckkernelverheader" = "$kernelverheaderold" ] && serverrestart="false"
     fi
     if [ -f /usr/local/bin/ss-server ]; then
         ssserverpath="/usr/local/bin/ss-server"
@@ -663,10 +660,7 @@ function servicesstart(){
         ssserverpath="/usr/bin/ss-server"
     fi
     if [ "$twistinstalled" = "false" ]; then
-        [ -e /etc/crontab ] && cp -f "/etc/crontab" "/etc/twistbackup/crontab"
-        [ -e /etc/crontab ] || touch /etc/crontab
-        echo "*/5 * * * * root bash /root/twistprotect" >> /etc/crontab
-        [ -e /etc/rc.local ] && cp -f "/etc/rc.local" "/etc/twistbackup/rc.local"
+        timemachine backup "/etc/rc.local" "/etc/twistbackup/rc.local"
         [ -e /etc/rc.local ] || echo "#!/bin/bash" > /etc/rc.local
         sed --follow-symlinks -i '/^exit 0/d' /etc/rc.local
         cat >> /etc/rc.local <<-EOF
@@ -747,11 +741,14 @@ componentstatus(){
         echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
         echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
     fi
-    if [ "\$1" = "0" ]; then
-        echo -e "\${echostatusa}"
-    else
-        echo -e "\${echostatusb}"
-    fi
+    case \$1 in
+        0)
+            echo -e "\${echostatusa}"
+            ;;
+        *)
+            echo -e "\${echostatusb}"
+            ;;
+    esac
 }
 
 twist_status(){
@@ -778,11 +775,7 @@ twist_start(){
             ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
             [ -e /var/log/twistprotect ] || touch /var/log/twistprotect
             ssserverpid
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[32;1mStarting Shadowsocks-libev Success... \033[0m"
-            else
-                echo -e "# \033[31;1mStarting Shadowsocks-libev Failed... \033[0m"
-            fi
+            componentstatus "\$?" "Starting" "Shadowsocks-libev"
             ;;
     esac
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
@@ -823,13 +816,7 @@ twist_stop(){
             rm -f /var/run/shadowsocks-libev.pid
             [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
             ssserverpid
-            if [ "\$?" = "0" ]; then
-                echo -e "# \033[31;1mStopping Shadowsocks-libev Failed... \033[0m"
-                status="1"
-            else
-                echo -e "# \033[32;1mStopping Shadowsocks-libev Success... \033[0m"
-                status="0"
-            fi
+            componentstatus "\$?" "Stopping" "Shadowsocks-libev"
             ;;
         1|2)
             echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
@@ -929,6 +916,9 @@ twistprotectenable(){
 }
 
 EOF
+    timemachine backup "/etc/crontab" "/etc/twistbackup/crontab"
+    [ -e /etc/crontab ] || touch /etc/crontab
+    echo "*/5 * * * * root bash /root/twistprotect" >> /etc/crontab
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
     chmod 600 /etc/shadowsocks-libev/config.json
     [ "$systemtype" = "0" ] && systemctl --now mask firewalld

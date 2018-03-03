@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.2.8 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.2.9 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -68,6 +68,7 @@ function update_twist(){
     echo ""
     sleep 5
     rootness
+    shadowsocksconfig
     systemconfig
     selinuxdisable
     systemdetect
@@ -713,7 +714,7 @@ EOF
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
 status="0"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
-    echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mis not found... \033[0m"
+    echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mwas not found... \033[0m"
     exit 1
 fi
 
@@ -909,7 +910,7 @@ date="\$(date +%Y-%m-%d-%H:%M:%S)"
 echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m \033[32;1m/var/log/twistprotect\033[0m]"
 
 twistprotect(){
-    echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled \033[0m"
+    echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled... \033[0m"
     if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
         echo -e "# \033[31;1mShadowsocks-libev Service Stopped Detected \033[0m"
         echo -e "# \${date} Shadowsocks-libev Service Stopped Detected " >> /var/log/twistprotect
@@ -922,6 +923,8 @@ twistprotect(){
         else
             echo "# \${date} Shadowsocks-libev Service Start Success " >> /var/log/twistprotect
         fi
+    else
+        echo -e "# \033[31;1mShadowsocks-libev Service Running Detected... \033[0m"
     fi
 }
 
@@ -977,7 +980,7 @@ EOF
 if [ -e /var/log/twistprotect ]; then
     twistprotect
 else
-    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled \033[0m"
+    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled... \033[0m"
 fi
 
 EOF

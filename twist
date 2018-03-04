@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.7 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.8 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -231,7 +231,7 @@ function timemachine(){
             cp -f "${2}" "${3}"
         else
             rm -f "${3}"
-        f
+        fi
     fi
 }
 

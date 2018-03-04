@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.3 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.4 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -46,7 +46,8 @@ function install_twist(){
     sleep 5
     rootness
     selinuxdisable
-    [ -d /etc/twistbackup ] || mkdir -p /etc/twistbackup
+    [ -d /etc/twist ] || mkdir -p /etc/twist
+    twistlog "TWIST Installing"
     shadowsocksconfig
     systemconfig
     systemdetect
@@ -68,6 +69,7 @@ function update_twist(){
     echo ""
     sleep 5
     rootness
+    twistlog "TWIST Updating"
     shadowsocksconfig
     systemconfig
     selinuxdisable
@@ -77,7 +79,7 @@ function update_twist(){
     else
         if [ -r /var/run/shadowsocks-libev.pid ]; then
             read pid < /var/run/shadowsocks-libev.pid
-            [ -e /var/log/twistprotect ] && { echo -e "# \${date} Shadowsocks-libev Service Stopped Due To Update " >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
+            [ -e /etc/twist/twistprotect ] && { echo -e "# \${date} Shadowsocks-libev Service Stopped Due To Update " >> /var/log/twist; rm -f /etc/twist/twistprotect; }
             kill -9 $pid
             rm -f /var/run/shadowsocks-libev.pid
         fi
@@ -136,29 +138,29 @@ function uninstall_twist(){
     popd
     rm -f /usr/local/include/shadowsocks.h /usr/local/share/man/man8/shadowsocks-libev.8
     rm -fr /usr/local/share/doc/shadowsocks-libev /etc/shadowsocks-libev
-    timemachine restore "/etc/twistbackup/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
-    timemachine restore "/etc/twistbackup/limits.conf" "/etc/security/limits.conf"
-    timemachine restore "/etc/twistbackup/login" "/etc/pam.d/login"
-    timemachine restore "/etc/twistbackup/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
-    timemachine restore "/etc/twistbackup/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
-    if [ -e /etc/twistbackup/iptablesload ]; then
-        cp -f "/etc/twistbackup/iptablesload" "/etc/network/if-pre-up.d/iptablesload"
+    timemachine restore "/etc/twist/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
+    timemachine restore "/etc/twist/limits.conf" "/etc/security/limits.conf"
+    timemachine restore "/etc/twist/login" "/etc/pam.d/login"
+    timemachine restore "/etc/twist/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
+    timemachine restore "/etc/twist/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
+    if [ -e /etc/twist/iptablesload ]; then
+        cp -f "/etc/twist/iptablesload" "/etc/network/if-pre-up.d/iptablesload"
     else
         rm -f /etc/network/if-pre-up.d/iptablesload
     fi
-    if [ -e /etc/twistbackup/ip6tablesload ]; then
-        cp -f "/etc/twistbackup/ip6tablesload" "/etc/network/if-pre-up.d/ip6tablesload"
+    if [ -e /etc/twist/ip6tablesload ]; then
+        cp -f "/etc/twist/ip6tablesload" "/etc/network/if-pre-up.d/ip6tablesload"
     else
         rm -f /etc/network/if-pre-up.d/ip6tablesload
     fi
-    [ -d "/etc/twistbackup/firewalld" ] && cp -fr "/etc/twistbackup/firewalld" "/etc/firewalld"
-    [ -d "/etc/twistbackup/lib/firewalld" ] && cp -fr "/etc/twistbackup/lib/firewalld" "/usr/lib/firewalld"
-    timemachine restore "/etc/twistbackup/crontab" "/etc/crontab"
-    timemachine restore "/etc/twistbackup/rc.local" "/etc/rc.local"
-    timemachine restore "/etc/twistbackup/.htaccess" "/var/www/html/.htaccess"
-    timemachine restore "/etc/twistbackup/index.html" "/var/www/html/index.html"
-    rm -f /usr/bin/twist
-    rm -fr /etc/twistbackup
+    [ -d "/etc/twist/firewalld" ] && cp -fr "/etc/twist/firewalld" "/etc/firewalld"
+    [ -d "/etc/twist/lib/firewalld" ] && cp -fr "/etc/twist/lib/firewalld" "/usr/lib/firewalld"
+    timemachine restore "/etc/twist/crontab" "/etc/crontab"
+    timemachine restore "/etc/twist/rc.local" "/etc/rc.local"
+    timemachine restore "/etc/twist/.htaccess" "/var/www/html/.htaccess"
+    timemachine restore "/etc/twist/index.html" "/var/www/html/index.html"
+    rm -f /usr/bin/twist /var/log/twist
+    rm -fr /etc/twist
     systemctl restart fail2ban apache2
     [ -e /var/www/html/index.html ] || systemctl stop apache2
     ldconfig
@@ -187,6 +189,11 @@ function twistprint(){
         echo ""
         exit 1
     fi
+}
+
+function twistlog(){
+    [ -e /var/log/twist ] || touch /var/log/twist
+    echo "# ${date} ${1} " >> /var/log/twist
 }
 
 function dependenciesinstallerr(){
@@ -226,6 +233,7 @@ function timemachine(){
 
 function serverrestart(){
     if [ "$serverrestart" = "true" ]; then
+        twistlog "TWIST Restarting Server"
         echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot! \033[0m]"
         echo ""
         read -p ""
@@ -410,7 +418,7 @@ function dependenciesinstall(){
 
 function tcpbbrenable(){
     if [ "$BBR" = "enable" ]; then
-        timemachine backup "/etc/sysctl.conf" "/etc/twistbackup/sysctl.conf"
+        timemachine backup "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
         if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "1" ] || [ "$kernelupdated" = "true" ]; then
             if [ ! "$(sysctl net.ipv4.tcp_available_congestion_control | awk '{print $3}')" = "bbr" ]; then
                 sed -i '/net.ipv4.tcp_congestion_control/d' /etc/sysctl.conf
@@ -546,7 +554,7 @@ function sslibevconfigure(){
     [ "$OBFSURI" = "/" ] && OBFSURL=""
     [ -z "$PASSWORD" ] && PASSWORD="$(< /dev/urandom tr -dc 'A-HJ-NPR-Za-km-z2-9-._+?%^&*()' | head -c 8)"
     [ -d /etc/shadowsocks-libev ] || mkdir -p /etc/shadowsocks-libev
-    timemachine backup "/etc/shadowsocks-libev/config.json" "/etc/twistbackup/config.json"
+    timemachine backup "/etc/shadowsocks-libev/config.json" "/etc/twist/config.json"
     cat > /etc/shadowsocks-libev/config.json <<-EOF
 {
     "server":${SSLOCAL},
@@ -565,7 +573,7 @@ function sslibevconfigure(){
 }
 EOF
     if [ "$twistinstalled" = "false" ]; then
-        timemachine backup "/etc/sysctl.conf" "/etc/twistbackup/sysctl.conf"
+        timemachine backup "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
         cat >> /etc/sysctl.conf <<-EOF
 
 # Twist
@@ -612,20 +620,20 @@ net.ipv6.conf.all.accept_ra = 2
 net.ipv6.conf.${ETH}.accept_ra = 2
 
 EOF
-        timemachine backup "/etc/security/limits.conf" "/etc/twistbackup/limits.conf"
+        timemachine backup "/etc/security/limits.conf" "/etc/twist/limits.conf"
         echo "*                soft    nofile           512000" >> /etc/security/limits.conf
         echo "*                hard    nofile          1024000" >> /etc/security/limits.conf
         echo "" >> /etc/security/limits.conf
         if ! grep -qs "pam_limits.so" /etc/pam.d/login; then
-            timemachine backup "/etc/pam.d/login" "/etc/twistbackup/login"
+            timemachine backup "/etc/pam.d/login" "/etc/twist/login"
             [ "$systemtype" = "0" ] && echo "session    required     pam_limits.so" >> /etc/pam.d/login
         fi
     fi
 }
 
 function firewallconfigure(){
-    iptables-save > "/etc/twistbackup/iptables.rules"
-    iptables-save > "/etc/twistbackup/iptables.rules.old-${date}"
+    iptables-save > "/etc/twist/iptables.rules"
+    iptables-save > "/etc/twist/iptables.rules.old-${date}"
     iptables -I INPUT -m conntrack --ctstate INVALID -j DROP
     iptables -I INPUT -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
     iptables -I INPUT -p tcp -m multiport --dports $PORT -j ACCEPT
@@ -636,10 +644,10 @@ function firewallconfigure(){
     iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     iptables -t nat -A POSTROUTING -o $ETH -j MASQUERADE
     iptables-save > "/etc/iptables.rules"
-    timemachine backup "/etc/ip6tables.rules" "/etc/twistbackup/ip6tables.rules"
+    timemachine backup "/etc/ip6tables.rules" "/etc/twist/ip6tables.rules"
     cp -f "/etc/iptables.rules" "/etc/ip6tables.rules"
     [ -d /etc/network/if-pre-up.d ] || mkdir -p /etc/network/if-pre-up.d
-    timemachine backup "/etc/network/if-pre-up.d/iptablesload" "/etc/twistbackup/iptablesload"
+    timemachine backup "/etc/network/if-pre-up.d/iptablesload" "/etc/twist/iptablesload"
     cat > /etc/network/if-pre-up.d/iptablesload <<-EOF
 #!/bin/sh
 
@@ -647,7 +655,7 @@ iptables-restore < /etc/iptables.rules
 exit 0
 
 EOF
-    timemachine backup "/etc/network/if-pre-up.d/ip6tablesload" "/etc/twistbackup/ip6tablesload"
+    timemachine backup "/etc/network/if-pre-up.d/ip6tablesload" "/etc/twist/ip6tablesload"
     cat > /etc/network/if-pre-up.d/ip6tablesload <<-EOF
 #!/bin/sh
 
@@ -658,11 +666,11 @@ EOF
     if [ "$systemtype" = "0" ]; then
         systemctl start firewalld
         if [ "$twistinstalled" = "false" ]; then
-            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twistbackup/firewalld"
-            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twistbackup/lib/firewalld"
+            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twist/firewalld"
+            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twist/lib/firewalld"
         else
-            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twistbackup/firewalld.old-${date}"
-            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twistbackup/lib/firewalld.old-${date}"
+            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twist/firewalld.old-${date}"
+            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twist/lib/firewalld.old-${date}"
         fi
         firewall-cmd --permanent --zone=public --add-port=${PORT}/tcp
         firewall-cmd --permanent --zone=public --add-port=${PORT}/udp
@@ -683,7 +691,7 @@ function servicesstart(){
         ssserverpath="/usr/bin/ss-server"
     fi
     if [ "$twistinstalled" = "false" ]; then
-        timemachine backup "/etc/rc.local" "/etc/twistbackup/rc.local"
+        timemachine backup "/etc/rc.local" "/etc/twist/rc.local"
         [ -e /etc/rc.local ] || echo "#!/bin/bash" > /etc/rc.local
         sed --follow-symlinks -i '/^exit 0/d' /etc/rc.local
         cat >> /etc/rc.local <<-EOF
@@ -692,7 +700,7 @@ sysctl -q -p
 iptables-restore < /etc/iptables.rules
 ip6tables-restore < /etc/ip6tables.rules
 systemctl start fail2ban
-[ -e /var/log/twistprotect ] && ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+[ -e /etc/twist/twistprotect ] && ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
 EOF
         if [ "$packagemanagertype" = "p" ]; then
             echo "systemctl start cronie.service" >> /etc/rc.local
@@ -706,7 +714,7 @@ exit 0
 
 EOF
     else
-        [ -e /etc/rc.local ] && cp -f "/etc/rc.local" "/etc/twistbackup/rc.local.old-${date}"
+        [ -e /etc/rc.local ] && cp -f "/etc/rc.local" "/etc/twist/rc.local.old-${date}"
     fi
     cat > /usr/bin/twist <<-EOF
 #!/bin/bash
@@ -788,7 +796,7 @@ twist_start(){
         status="0"
     else
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
-        [ -e /var/log/twistprotect ] || echo -e "# [TWIST Shadowsocks Protect Services Enabled]" > /var/log/twistprotect
+        [ -e /etc/twist/twistprotect ] || echo -e "# \${date} Shadowsocks Protect Services Enabled " >> /var/log/twist
         ssserverstatus
         echostatus "\$?" "Starting" "Shadowsocks-libev"
     fi
@@ -818,10 +826,9 @@ twist_start(){
 
 twist_stop(){
     echo -e "# [\033[34;1mTWIST Stopping Server Service\033[0m]"
-    echo -e "# \${date} TWIST Shadowsocks Protect Services Disabled " >> /var/log/twistprotect
     ssserverstatus
     if [ "\$?" = "0" ]; then
-        [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"; rm -f /var/log/twistprotect; }
+        [ -e /etc/twist/twistprotect ] && { echo -e "# \${date} Shadowsocks Protect Services Disabled " >> /var/log/twist; rm -f /etc/twist/twistprotect; }
         kill -9 \$pid
         rm -f /var/run/shadowsocks-libev.pid
         [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
@@ -882,6 +889,11 @@ twistdo(){
     fi
 }
 
+twistlog(){
+    [ -e /var/log/twist ] || touch /var/log/twist
+    echo "# \${date} \${1} " >> /var/log/twist
+}
+
 case "\$1" in
     status|start|stop|restart|custom)
         twist_\${1}
@@ -908,21 +920,20 @@ EOF
 #!/bin/bash
 
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
-echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m \033[32;1m/var/log/twistprotect\033[0m]"
+echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m]"
 
 twistprotect(){
     echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled... \033[0m"
     if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
         echo -e "# \033[31;1mShadowsocks-libev Service Stopped Detected \033[0m"
-        echo -e "# \${date} Shadowsocks-libev Service Stopped Detected " >> /var/log/twistprotect
+        echo -e "# \${date} Shadowsocks-libev Service Stopped Detected " >> /var/log/twist
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
         if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
-            echo "# \${date} Shadowsocks-libev Service Start Failed " >> /var/log/twistprotect
-            echo "# \${date} TWIST Shadowsocks Protect Services Disabled Due To Error " >> /var/log/twistprotect
-            cp -f "/var/log/twistprotect" "/var/log/twistprotect-\${date}"
-            rm -f /var/log/twistprotect
+            echo "# \${date} Shadowsocks-libev Service Retart Failed " >> /var/log/twist
+            echo "# \${date} Shadowsocks Protect Services Disabled Due To Error " >> /var/log/twist
+            rm -f /etc/twist/twistprotect
         else
-            echo "# \${date} Shadowsocks-libev Service Start Success " >> /var/log/twistprotect
+            echo "# \${date} Shadowsocks-libev Service Restart Success " >> /var/log/twist
         fi
     else
         echo -e "# \033[31;1mShadowsocks-libev Service Running Detected... \033[0m"
@@ -930,7 +941,7 @@ twistprotect(){
 }
 
 EOF
-    timemachine backup "/etc/crontab" "/etc/twistbackup/crontab"
+    timemachine backup "/etc/crontab" "/etc/twist/crontab"
     [ -e /etc/crontab ] || touch /etc/crontab
     echo "*/1 * * * * root bash /root/twistprotect" >> /etc/crontab
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
@@ -950,13 +961,8 @@ EOF
     sysctl -p
     ldconfig
     if [ "$FWS" = "enable" ]; then
-        if [ "$twistinstalled" = "false" ]; then
-            [ -e /var/www/html/.htaccess ] && cp -f "/var/www/html/.htaccess" "/etc/twistbackup/.htaccess"
-            [ -e /var/www/html/index.html ] && cp -f "/var/www/html/index.html" "/etc/twistbackup/index.html"
-        else
-            [ -e /var/www/html/.htaccess ] && cp -f "/var/www/html/.htaccess" "/etc/twistbackup/.htaccess.old-${date}"
-            [ -e /var/www/html/index.html ] && cp -f "/var/www/html/index.html" "/etc/twistbackup/index.html.old-${date}"
-        fi
+        timemachine backup "/var/www/html/.htaccess" "/etc/twist/.htaccess"
+        timemachine backup "/var/www/html/index.html" "/etc/twist/index.html"
         rm -f /var/www/html/.htaccess && echo "" > /var/www/html/.htaccess
         cat >> /var/www/html/.htaccess <<-EOF
 <IfModule mod_rewrite.c>
@@ -972,13 +978,14 @@ EOF
         systemctl restart ${webservername}
     fi
     rngd -r /dev/urandom
+    twistlog "TWIST Installed"
     sleep 3
     echo ""
     twist start
     echo ""
     if [ "$twistinstalled" = "false" ]; then
         cat >> /root/twistprotect <<-EOF
-if [ -e /var/log/twistprotect ]; then
+if [ -e /etc/twist/twistprotect ]; then
     twistprotect
 else
     echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled... \033[0m"

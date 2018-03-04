@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.4 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.5 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -721,9 +721,12 @@ EOF
 
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
 status="0"
+twistlog="# \${date} TWIST"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
     echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mwas not found... \033[0m"
     exit 1
+else
+    [ -e /var/log/twist ] || touch /var/log/twist
 fi
 
 ssserverstatus(){
@@ -889,11 +892,6 @@ twistdo(){
     fi
 }
 
-twistlog(){
-    [ -e /var/log/twist ] || touch /var/log/twist
-    echo "# \${date} \${1} " >> /var/log/twist
-}
-
 case "\$1" in
     status|start|stop|restart|custom)
         twist_\${1}
@@ -929,7 +927,7 @@ twistprotect(){
         echo -e "# \${date} Shadowsocks-libev Service Stopped Detected " >> /var/log/twist
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
         if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
-            echo "# \${date} Shadowsocks-libev Service Retart Failed " >> /var/log/twist
+            echo "# \${date} Shadowsocks-libev Service Restart Failed " >> /var/log/twist
             echo "# \${date} Shadowsocks Protect Services Disabled Due To Error " >> /var/log/twist
             rm -f /etc/twist/twistprotect
         else

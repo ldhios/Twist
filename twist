@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.2 Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.3 Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -77,7 +77,7 @@ function update_twist(){
     else
         if [ -r /var/run/shadowsocks-libev.pid ]; then
             read pid < /var/run/shadowsocks-libev.pid
-            [ -e /var/log/twistprotect ] && { echo -e "# [TWIST Shadowsocks Protect Services Disabled]" >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
+            [ -e /var/log/twistprotect ] && { echo -e "# \${date} Shadowsocks-libev Service Stopped Due To Update " >> /var/log/twistprotect; cp -f "/var/log/twistprotect" "/var/log/twistprotect-${date}"; rm -f /var/log/twistprotect; }
             kill -9 $pid
             rm -f /var/run/shadowsocks-libev.pid
         fi
@@ -873,7 +873,8 @@ twist_custom(){
 twistdo(){
     echo -e "# [\033[34;1mTWIST Preparing \${2}\033[0m]"
     sleep 2
-    sudo wget https://raw.githubusercontent.com/Unbinilium/Twist/master/twist -O twist.sh && { chmod -x twist.sh; bash twist.sh \${1}; rm twist.sh; }
+    cd /tmp
+    sudo wget -t 3 -T 30 -nv -O "twist.sh" "https://raw.githubusercontent.com/Unbinilium/Twist/master/twist" && { chmod -x twist.sh; bash twist.sh \${1}; }
     if [ "\$?" = "0" ]; then
         status="0"
     else

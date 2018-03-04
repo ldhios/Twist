@@ -38,8 +38,9 @@ TCP 443
 ```
 - Twist will make changes to your Server, so it is necessary to backup your files that stored on the Server. And Twist will automatically backup files what it makes changes to while Install and restore them while Uninstall. The default back path is listed here
 ```txt
-/etc/twistbackup
+/etc/twist
 ```
+- The simple **log** is stored at ```/var/log/twist```. It only recored Twist service status, not the verbose log
 
 ## Custom
 Change the default configurations by editing Twish before install, the manual and detailed information of shadowsocks-libev configurations is at <a href="https://github.com/shadowsocks/shadowsocks/wiki/Configuration-via-Config-File" target="_blank">shadowsocks-libev Wiki</a>

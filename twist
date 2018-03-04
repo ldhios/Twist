@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.6 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.7 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -47,7 +47,7 @@ function install_twist(){
     rootness
     selinuxdisable
     [ -d /etc/twist ] || mkdir -p /etc/twist
-    twistlog "TWIST Installing"
+    twistlog "[TWIST Installing]"
     shadowsocksconfig
     systemconfig
     systemdetect
@@ -69,7 +69,7 @@ function update_twist(){
     echo ""
     sleep 5
     rootness
-    twistlog "TWIST Updating"
+    twistlog "[TWIST Updating]"
     shadowsocksconfig
     systemconfig
     selinuxdisable
@@ -138,11 +138,11 @@ function uninstall_twist(){
     popd
     rm -f /usr/local/include/shadowsocks.h /usr/local/share/man/man8/shadowsocks-libev.8
     rm -fr /usr/local/share/doc/shadowsocks-libev /etc/shadowsocks-libev
-    timemachine restore "/etc/twist/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
-    timemachine restore "/etc/twist/limits.conf" "/etc/security/limits.conf"
-    timemachine restore "/etc/twist/login" "/etc/pam.d/login"
-    timemachine restore "/etc/twist/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
-    timemachine restore "/etc/twist/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
+    timemachine "restore" "/etc/twist/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
+    timemachine "restore" "/etc/twist/limits.conf" "/etc/security/limits.conf"
+    timemachine "restore" "/etc/twist/login" "/etc/pam.d/login"
+    timemachine "restore" "/etc/twist/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
+    timemachine "restore" "/etc/twist/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
     if [ -e /etc/twist/iptablesload ]; then
         cp -f "/etc/twist/iptablesload" "/etc/network/if-pre-up.d/iptablesload"
     else
@@ -155,10 +155,10 @@ function uninstall_twist(){
     fi
     [ -d "/etc/twist/firewalld" ] && cp -fr "/etc/twist/firewalld" "/etc/firewalld"
     [ -d "/etc/twist/lib/firewalld" ] && cp -fr "/etc/twist/lib/firewalld" "/usr/lib/firewalld"
-    timemachine restore "/etc/twist/crontab" "/etc/crontab"
-    timemachine restore "/etc/twist/rc.local" "/etc/rc.local"
-    timemachine restore "/etc/twist/.htaccess" "/var/www/html/.htaccess"
-    timemachine restore "/etc/twist/index.html" "/var/www/html/index.html"
+    timemachine "restore" "/etc/twist/crontab" "/etc/crontab"
+    timemachine "restore" "/etc/twist/rc.local" "/etc/rc.local"
+    timemachine "restore" "/etc/twist/.htaccess" "/var/www/html/.htaccess"
+    timemachine "restore" "/etc/twist/index.html" "/var/www/html/index.html"
     rm -f /usr/bin/twist /var/log/twist
     rm -fr /etc/twist
     systemctl restart fail2ban apache2
@@ -227,13 +227,17 @@ function timemachine(){
             [ -e "$2" ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
         fi
     else
-        [ -e "$2" ] && cp -f "${2}" "${3}"
+        if [ -e "$2" ]; then
+            cp -f "${2}" "${3}"
+        else
+            rm -f "${3}"
+        f
     fi
 }
 
 function serverrestart(){
     if [ "$serverrestart" = "true" ]; then
-        twistlog "TWIST Restarting Server"
+        twistlog "[TWIST Required Server Restart]"
         echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot! \033[0m]"
         echo ""
         read -p ""
@@ -418,7 +422,7 @@ function dependenciesinstall(){
 
 function tcpbbrenable(){
     if [ "$BBR" = "enable" ]; then
-        timemachine backup "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
+        timemachine "backup" "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
         if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "1" ] || [ "$kernelupdated" = "true" ]; then
             if [ ! "$(sysctl net.ipv4.tcp_available_congestion_control | awk '{print $3}')" = "bbr" ]; then
                 sed -i '/net.ipv4.tcp_congestion_control/d' /etc/sysctl.conf
@@ -554,7 +558,7 @@ function sslibevconfigure(){
     [ "$OBFSURI" = "/" ] && OBFSURL=""
     [ -z "$PASSWORD" ] && PASSWORD="$(< /dev/urandom tr -dc 'A-HJ-NPR-Za-km-z2-9-._+?%^&*()' | head -c 8)"
     [ -d /etc/shadowsocks-libev ] || mkdir -p /etc/shadowsocks-libev
-    timemachine backup "/etc/shadowsocks-libev/config.json" "/etc/twist/config.json"
+    timemachine "backup" "/etc/shadowsocks-libev/config.json" "/etc/twist/config.json"
     cat > /etc/shadowsocks-libev/config.json <<-EOF
 {
     "server":${SSLOCAL},
@@ -573,7 +577,7 @@ function sslibevconfigure(){
 }
 EOF
     if [ "$twistinstalled" = "false" ]; then
-        timemachine backup "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
+        timemachine "backup" "/etc/sysctl.conf" "/etc/twist/sysctl.conf"
         cat >> /etc/sysctl.conf <<-EOF
 
 # Twist
@@ -620,12 +624,12 @@ net.ipv6.conf.all.accept_ra = 2
 net.ipv6.conf.${ETH}.accept_ra = 2
 
 EOF
-        timemachine backup "/etc/security/limits.conf" "/etc/twist/limits.conf"
+        timemachine "backup" "/etc/security/limits.conf" "/etc/twist/limits.conf"
         echo "*                soft    nofile           512000" >> /etc/security/limits.conf
         echo "*                hard    nofile          1024000" >> /etc/security/limits.conf
         echo "" >> /etc/security/limits.conf
         if ! grep -qs "pam_limits.so" /etc/pam.d/login; then
-            timemachine backup "/etc/pam.d/login" "/etc/twist/login"
+            timemachine "backup" "/etc/pam.d/login" "/etc/twist/login"
             [ "$systemtype" = "0" ] && echo "session    required     pam_limits.so" >> /etc/pam.d/login
         fi
     fi
@@ -644,10 +648,10 @@ function firewallconfigure(){
     iptables -I FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     iptables -t nat -A POSTROUTING -o $ETH -j MASQUERADE
     iptables-save > "/etc/iptables.rules"
-    timemachine backup "/etc/ip6tables.rules" "/etc/twist/ip6tables.rules"
+    timemachine "backup" "/etc/ip6tables.rules" "/etc/twist/ip6tables.rules"
     cp -f "/etc/iptables.rules" "/etc/ip6tables.rules"
     [ -d /etc/network/if-pre-up.d ] || mkdir -p /etc/network/if-pre-up.d
-    timemachine backup "/etc/network/if-pre-up.d/iptablesload" "/etc/twist/iptablesload"
+    timemachine "backup" "/etc/network/if-pre-up.d/iptablesload" "/etc/twist/iptablesload"
     cat > /etc/network/if-pre-up.d/iptablesload <<-EOF
 #!/bin/sh
 
@@ -655,7 +659,7 @@ iptables-restore < /etc/iptables.rules
 exit 0
 
 EOF
-    timemachine backup "/etc/network/if-pre-up.d/ip6tablesload" "/etc/twist/ip6tablesload"
+    timemachine "backup" "/etc/network/if-pre-up.d/ip6tablesload" "/etc/twist/ip6tablesload"
     cat > /etc/network/if-pre-up.d/ip6tablesload <<-EOF
 #!/bin/sh
 
@@ -691,7 +695,7 @@ function servicesstart(){
         ssserverpath="/usr/bin/ss-server"
     fi
     if [ "$twistinstalled" = "false" ]; then
-        timemachine backup "/etc/rc.local" "/etc/twist/rc.local"
+        timemachine "backup" "/etc/rc.local" "/etc/twist/rc.local"
         [ -e /etc/rc.local ] || echo "#!/bin/bash" > /etc/rc.local
         sed --follow-symlinks -i '/^exit 0/d' /etc/rc.local
         cat >> /etc/rc.local <<-EOF
@@ -700,7 +704,14 @@ sysctl -q -p
 iptables-restore < /etc/iptables.rules
 ip6tables-restore < /etc/ip6tables.rules
 systemctl start fail2ban
-[ -e /etc/twist/twistprotect ] && ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+if [ -e /etc/twist/twistprotect ]; then
+    if [ -r /var/run/shadowsocks-libev.pid ]; then
+        read pid < /var/run/shadowsocks-libev.pid
+        [ -d "/proc/\${pid}" ] || ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+    else
+        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+    fi
+fi
 EOF
         if [ "$packagemanagertype" = "p" ]; then
             echo "systemctl start cronie.service" >> /etc/rc.local
@@ -723,7 +734,7 @@ date="\$(date +%Y-%m-%d-%H:%M:%S)"
 status="0"
 if [ ! -f /etc/shadowsocks-libev/config.json ]; then
     twistlog "Shadowsocks-libev Service Error Due To No Config File"
-    echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mwas not found... \033[0m"
+    echo -e "# \033[31;1mError: Shadowsocks-libev config file\033[0m \033[32;1m/etc/shadowsocks-libev/config.json\033[0m \033[31;1mwas not found \033[0m"
     exit 1
 else
     [ -e /var/log/twist ] || touch /var/log/twist
@@ -755,7 +766,7 @@ componentps(){
             twistlog "\${2} Service is Stoped" "\$3" "31"
             return 1
         else
-            twistlog "\${2} Service is Disabled" "\$3" "31"
+            twistlog "\${2} Service is Disabled" "\$3" "33"
             return 2
         fi
     else
@@ -766,48 +777,46 @@ componentps(){
 
 echostatus(){
     if [ "\$2" = "Starting" ]; then
-        echostatusa="# \033[32;1m\${2} \${3} Service Success... \033[0m"
-        echostatusb="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
+        statusa="Success" && statusb="Failed"
+        colora="32" && colorb="31"
     else
-        echostatusa="# \033[31;1m\${2} \${3} Service Failed... \033[0m"
-        echostatusb="# \033[32;1m\${2} \${3} Service Success... \033[0m"
+        statusa="Failed" && statusb="Success"
+        colora="31" && colorb="32"
     fi
     if [ "\$1" = "0" ]; then
-        echo -e "\${echostatusa}"
+        twistlog "\${2} \${3} Service \${statusa}" "echo" "\${colora}"
     else
-        echo -e "\${echostatusb}"
+        twistlog "\${2} \${3} Service \${statusb}" "echo" "\${colorb}"
     fi
 }
 
 twist_status(){
-    echo -e "# [\033[34;1mTWIST Checking Server Status\033[0m]"
+    twistlog "[TWIST Checking Server Status]" "echo" "34"
     ssserverstatus "echo"
     componentps "fail2ban" "Fail2ban Protect" "echo" "enable"
     componentps "$webservername" "Fake Web Redirect" "echo" "$FWS"
     if [ "\$(lsmod | grep bbr)" = "" ]; then
-        twistlog "TCP BBR Support is Disabled"
-        echo -e "# \033[31;1mTCP BBR Support is Disabled... \033[0m"
+        twistlog "TCP BBR Support is Disabled" "echo" "33"
     else
-        twistlog "TCP BBR Support is Enabled"
-        echo -e "# \033[32;1mTCP BBR Support is Enabled... \033[0m"
+        twistlog "TCP BBR Support is Enabled" "echo" "32"
     fi
 }
 
 twist_start(){
-    echo -e "# [\033[34;1mTWIST Starting Server Service\033[0m]"
+    twistlog "[TWIST Starting Server Service]" "echo" "34"
     ssserverstatus
     if [ "\$?" = "0" ]; then
-        echo -e "# \033[32;1mShadowsocks-libev is Already Running... \033[0m"
+       twistlog "Shadowsocks-libev Service is Already Running" "echo" "32"
         status="0"
     else
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
-        [ -e /etc/twist/twistprotect ] || echo -e "# \${date} Shadowsocks Protect Services Enabled " >> /var/log/twist
+        [ -e /etc/twist/twistprotect ] || echo -e "# \${date} [Shadowsocks Protect Services Enabled] " >> /etc/twist/twistprotect
         ssserverstatus
         echostatus "\$?" "Starting" "Shadowsocks-libev"
     fi
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
     if [ "\$?" = "0" ]; then
-        echo -e "# \033[32;1mFail2ban Protect Service is Already Running... \033[0m"
+        twistlog "Fail2ban Protect Service is Already Running" "echo" "32"
     else
         systemctl start fail2ban
         componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
@@ -816,7 +825,7 @@ twist_start(){
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case "\$?" in
         0)
-            echo -e "# \033[32;1mFake Web Redirect Service is Already Running... \033[0m"
+            twistlog "Fake Web Redirect Service is Already Running" "echo" "32"
             ;;
         1)
             systemctl start ${webservername}
@@ -824,23 +833,23 @@ twist_start(){
             echostatus "\$?" "Starting" "Fake Web Redirect"
             ;;
         2)
-            componentps "$webservername" "Fake Web Redirect" "show" "disabled"
+            componentps "$webservername" "Fake Web Redirect" "echo" "disabled"
             ;;
     esac
 }
 
 twist_stop(){
-    echo -e "# [\033[34;1mTWIST Stopping Server Service\033[0m]"
+    twistlog "[TWIST Stopping Server Service]" "echo" "34"
     ssserverstatus
     if [ "\$?" = "0" ]; then
-        [ -e /etc/twist/twistprotect ] && { echo -e "# \${date} Shadowsocks Protect Services Disabled " >> /var/log/twist; rm -f /etc/twist/twistprotect; }
+        [ -e /etc/twist/twistprotect ] && { echo -e "# \${date} [Shadowsocks Protect Services Disabled] " >> /var/log/twist; rm -f /etc/twist/twistprotect; }
         kill -9 \$pid
         rm -f /var/run/shadowsocks-libev.pid
         [ -e /etc/systemd/system/shadowsocks-libev.service ] && systemctl stop shadowsocks-libev
         ssserverstatus
         echostatus "\$?" "Stopping" "Shadowsocks-libev"
     else
-        echo -e "# \033[31;1mShadowsocks-libev is Already Stopped... \033[0m"
+        twistlog "Shadowsocks-libev is Already Stopped" "echo" "31"
         status="0"
     fi
     componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
@@ -849,7 +858,7 @@ twist_stop(){
         componentps "fail2ban" "Fail2ban Protect" "hide" "enable"
         echostatus "\$?" "Stopping" "Fail2ban Protect"
     else
-        echo -e "# \033[31;1mFail2ban Protect Service is Already Stopped... \033[0m"
+        twistlog "Fail2ban Protect Service is Already Stopped" "echo" "31"
     fi
     componentps "$webservername" "Fake Web Redirect" "hide" "$FWS"
     case "\$?" in
@@ -859,31 +868,31 @@ twist_stop(){
             echostatus "\$?" "Stopping" "Fake Web Redirect"
             ;;
         1)
-            echo -e "# \033[31;1mFake Web Redirect Service is Already Stopped... \033[0m"
+            twistlog "Fake Web Redirect Service is Already Stopped" "echo" "31"
             ;;
         2)
-            componentps "$webservername" "Fake Web Redirect" "show" "disabled"
+            componentps "$webservername" "Fake Web Redirect" "echo" "disabled"
             ;;
     esac
 }
 
 twist_restart(){
-    echo -e "# [\033[34;1mTWIST Restarting Server Service\033[0m]"
-    echo -e "# \033[32;1mTwist Trying to Restart... \033[0m"
+    twistlog "[TWIST Restarting Server Service]" "echo" "34"
+    twistlog "Twist Trying to Restart Service" "echo" "32"
     /usr/bin/twist stop
     sleep 2
     /usr/bin/twist start
 }
 
 twist_custom(){
-    echo -e "# [\033[34;1mTWIST Loading Shadowsocks Configuration\033[0m]"
+    twistlog "[TWIST Loading Shadowsocks Configurator]" "echo" "34"
     sleep 2
     sudo nano /etc/shadowsocks-libev/config.json
     /usr/bin/twist restart
 }
 
-twistdo(){
-    echo -e "# [\033[34;1mTWIST Preparing \${2}\033[0m]"
+twist_do(){
+    twistlog "[TWIST Preparing \${2}]" "echo" "34"
     sleep 2
     cd /tmp
     sudo wget -t 3 -T 30 -nv -O "twist.sh" "https://raw.githubusercontent.com/Unbinilium/Twist/master/twist" && { chmod -x twist.sh; bash twist.sh \${1}; }
@@ -896,7 +905,7 @@ twistdo(){
 
 twistlog(){
     echo "# \${date} \${1} " >> /var/log/twist
-    [ "\$2" = "echo" ] && echo -e "# \033[\${3};1m\${1}... \033[0m"
+    [ "\$2" = "echo" ] && echo -e "# \033[\${3};1m\${1} \033[0m"
 }
 
 case "\$1" in
@@ -904,10 +913,10 @@ case "\$1" in
         twist_\${1}
         ;;
     update)
-        twistdo "update" "Update"
+        twist_do "update" "Update"
         ;;
     uninstall)
-        twistdo "uninstall" "Uninstall"
+        twist_do "uninstall" "Uninstall"
         ;;
     *)
         if [ -z "$1" ]; then
@@ -928,20 +937,20 @@ date="\$(date +%Y-%m-%d-%H:%M:%S)"
 echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m]"
 
 twistprotect(){
-    echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled... \033[0m"
+    echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled \033[0m"
     if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
         echo -e "# \033[31;1mShadowsocks-libev Service Stopped Detected \033[0m"
         twistlog "Shadowsocks-libev Service Stopped Detected"
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
         if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
             twistlog "Shadowsocks-libev Service Restart Failed"
-            twistlog "Shadowsocks Protect Services Disabled Due To Error"
+            twistlog "[Shadowsocks Protect Services Disabled Due To Error]"
             rm -f /etc/twist/twistprotect
         else
             twistlog "Shadowsocks-libev Service Restart Success"
         fi
     else
-        echo -e "# \033[31;1mShadowsocks-libev Service Running Detected... \033[0m"
+        echo -e "# \033[32;1mShadowsocks-libev Service Running Detected \033[0m"
     fi
 }
 
@@ -951,9 +960,6 @@ twistlog(){
 }
 
 EOF
-    timemachine backup "/etc/crontab" "/etc/twist/crontab"
-    [ -e /etc/crontab ] || touch /etc/crontab
-    echo "*/1 * * * * root bash /root/twistprotect" >> /etc/crontab
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
     chmod 600 /etc/shadowsocks-libev/config.json
     [ "$systemtype" = "0" ] && systemctl --now mask firewalld
@@ -971,8 +977,8 @@ EOF
     sysctl -p
     ldconfig
     if [ "$FWS" = "enable" ]; then
-        timemachine backup "/var/www/html/.htaccess" "/etc/twist/.htaccess"
-        timemachine backup "/var/www/html/index.html" "/etc/twist/index.html"
+        timemachine "backup" "/var/www/html/.htaccess" "/etc/twist/.htaccess"
+        timemachine "backup" "/var/www/html/index.html" "/etc/twist/index.html"
         rm -f /var/www/html/.htaccess && echo "" > /var/www/html/.htaccess
         cat >> /var/www/html/.htaccess <<-EOF
 <IfModule mod_rewrite.c>
@@ -988,17 +994,21 @@ EOF
         systemctl restart ${webservername}
     fi
     rngd -r /dev/urandom
-    twistlog "TWIST Installed"
+    twistlog "[TWIST Installed]"
     sleep 3
     echo ""
     twist start
+    sleep 3
     echo ""
+    timemachine "backup" "/etc/crontab" "/etc/twist/crontab"
+    [ -e /etc/crontab ] || touch /etc/crontab
+    echo "*/1 * * * * root bash /root/twistprotect" >> /etc/crontab
     if [ "$twistinstalled" = "false" ]; then
         cat >> /root/twistprotect <<-EOF
 if [ -e /etc/twist/twistprotect ]; then
     twistprotect
 else
-    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled... \033[0m"
+    echo -e "# \033[31;1mTWIST Shadowsocks Protect Services Disabled \033[0m"
 fi
 
 EOF

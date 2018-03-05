@@ -40,7 +40,7 @@ TCP 443
 ```txt
 /etc/twist
 ```
-- The simple **log** is stored at ```/var/log/twist```. It only recored Twist service status, not the verbose log. If you want know more details about shadowsocks-libev server, try this command ```ss-server``` or even more detailed logs using ```systemctl status shadowsocks-libev-server``` if you are using **systemd** to manage its service
+- The simple **log** is stored at ```/var/log/twist```. It only recored Twist service status, not the verbose log. If you want know more details about shadowsocks-libev server, try this command ```ss-server``` or even more detailed logs using ```systemctl status shadowsocks-libev-server``` if you are using **systemd** to manage its service. Also check the **syslog** using command ```cat /var/log/syslog``` when this shadowsocks-libev feature called **use_syslog** is on
 
 ## Custom
 Change the default configurations by editing Twish before install, the manual and detailed information of shadowsocks-libev configurations is at <a href="https://github.com/shadowsocks/shadowsocks/wiki/Configuration-via-Config-File" target="_blank">shadowsocks-libev Wiki</a>
@@ -56,16 +56,22 @@ Edit values in typename="**HERE**", save and run Twist after you have confirmed 
  PORT="443"                       # Server port
  LOACL="127.0.0.1"                # The address that server listens
  LOCALPORT="1080"                 # Local port of loacl address that server listens
- PASSWORD=""                      # Password used for encryption, auto generate if left free 
+ PASSWORD=""                      # Password used for encryption, auto generate if left free
+ METHOD="xchacha20-ietf-poly1305" # Encryption, AEAD is better than OTA cipher which is already departed
+ TIMEOUT="600"                    # Drop connections if it not using in seconds
+ OBFS="tls"                       # Obfs method using tls or http
+ OBFSHOST="mzstatic.com"          # Obfs host address
+ OBFSURI="/"                      # Obfs specify the client request path uri
+ FASTOPEN="true"                  # Use TCP fastopen that reduces TCP handshake time
+ REUSEPORT="true"                 # Use TCP port reuse
  DNS1="8.8.8.8"                   # Default DNSv4 server address from Google Public DNS
  DNS2="8.8.4.4"                   # Default DNSv4 server address from Google Public DNS
  DNSv61="2001:4860:4860::8888"    # Default DNSv6 server address from Google Public DNSv6
  DNSv62="2001:4860:4860::8844"    # Default DNSv6 server address from Google Public DNSv6
- TIMEOUT="600"                    # Drop connections if it not using in seconds
- METHOD="xchacha20-ietf-poly1305" # Encryption, AEAD is better than OTA
- OBFS="tls"                       # Obfs method using tls or http
- OBFSHOST="mzstatic.com"          # Obfs host address
- OBFSURI="/"                      # Obfs specify the client request path uri
+ MODE="tcp_and_udp"               # Allow both connection use TCP and UDP
+ MPTCP="true"                     # Use multi-TCP feature that increase network speed, kernel ver > 4.0 required
+ SYSLOG="true"                    # Export verbose log to /var/log/syslog
+ NODELAY="true"                   # Reduce the TCP respond time delay
  FWS="enable"                     # Fake as a apache web server for concealing
  BBR="enable"                     # Use Google BBR for low delay network to get faster speed
 ```

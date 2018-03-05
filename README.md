@@ -40,7 +40,7 @@ TCP 443
 ```txt
 /etc/twist
 ```
-- The simple **log** is stored at ```/var/log/twist```. It only recored Twist service status, not the verbose log
+- The simple **log** is stored at ```/var/log/twist```. It only recored Twist service status, not the verbose log. If you want know more details about shadowsocks-libev server, try this command ```ss-server``` or even more detailed logs using ```systemctl status shadowsocks-libev-server``` if you are using **systemd** to manage its service
 
 ## Custom
 Change the default configurations by editing Twish before install, the manual and detailed information of shadowsocks-libev configurations is at <a href="https://github.com/shadowsocks/shadowsocks/wiki/Configuration-via-Config-File" target="_blank">shadowsocks-libev Wiki</a>

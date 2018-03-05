@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.8 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.3.9 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -12,7 +12,10 @@ function shadowsocksconfig(){
     LOACL="127.0.0.1"
     LOCALPORT="1080"
     PASSWORD=""
-    DNS="8.8.8.8"
+    DNS1="8.8.8.8"
+    DNS2="8.8.4.4"
+    DNSv61="2001:4860:4860::8888"
+    DNSv62="2001:4860:4860::8844"
     TIMEOUT="600"
     METHOD="xchacha20-ietf-poly1305"
     OBFS="tls"
@@ -391,10 +394,15 @@ function systemdetect(){
             echo ""
         fi
     fi
-    [ -z "$(ip -6 addr show ${ETH})" ] && { SSLOCAL="\"0.0.0.0\""; IPV6ENABLE="false"; }
-    [ -z "$PUBLICIPv6" ] && PUBLICIPv6="$(curl -s diagnostic.opendns.com/myip)"
-    [ -z "$PUBLICIPv6" ] && IPV6ENABLE="false"
-    [ "$PUBLICIPv6" = "$PUBLICIP" ] && IPV6ENABLE="false"
+    DNS="${DNS1},${DNS2},${DNSv61},${DNSv62}"
+    if [ -z "$(ip -6 addr show ${ETH})" ] || [ -z "$PUBLICIPv6" ]; then
+        PUBLICIPv6="$(curl -s diagnostic.opendns.com/myip)"
+        if [ -z "$PUBLICIPv6" ] || [ "$PUBLICIPv6" = "$PUBLICIP" ]; then
+            SSLOCAL="\"0.0.0.0\""
+            DNS="${DNS1},${DNS2}"
+            IPV6ENABLE="false"
+        fi
+     fi
 }
 
 function dependenciesinstall(){

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.3.9 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.0 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -12,15 +12,21 @@ function shadowsocksconfig(){
     LOACL="127.0.0.1"
     LOCALPORT="1080"
     PASSWORD=""
+    METHOD="xchacha20-ietf-poly1305"
+    TIMEOUT="600"
+    OBFS="tls"
+    OBFSHOST="mzstatic.com"
+    OBFSURI="/"
+    FASTOPEN="true"
+    REUSEPORT="true"
     DNS1="8.8.8.8"
     DNS2="8.8.4.4"
     DNSv61="2001:4860:4860::8888"
     DNSv62="2001:4860:4860::8844"
-    TIMEOUT="600"
-    METHOD="xchacha20-ietf-poly1305"
-    OBFS="tls"
-    OBFSHOST="mzstatic.com"
-    OBFSURI="/"
+    MODE="tcp_and_udp"
+    MPTCP="true"
+    SYSLOG="true"
+    NODELAY="true"
     FWS="enable"
     BBR="enable"
 }
@@ -565,6 +571,7 @@ function sslibevconfigure(){
     [ -z "$OBFSURI" ] && OBFSURL=""
     [ "$OBFSURI" = "/" ] && OBFSURL=""
     [ -z "$PASSWORD" ] && PASSWORD="$(< /dev/urandom tr -dc 'A-HJ-NPR-Za-km-z2-9-._+?%^&*()' | head -c 8)"
+    [ $(echo ${kernelverheader} | awk -v ver=4.0 '{print($1>ver)? "1":"0"}') -eq "0" ] && MPTCP="false"
     [ -d /etc/shadowsocks-libev ] || mkdir -p /etc/shadowsocks-libev
     timemachine "backup" "/etc/shadowsocks-libev/config.json" "/etc/twist/config.json"
     cat > /etc/shadowsocks-libev/config.json <<-EOF
@@ -574,14 +581,18 @@ function sslibevconfigure(){
     "local_address":"${LOACL}",
     "local_port":${LOCALPORT},
     "password":"${PASSWORD}",
-    "nameserver":"${DNS}",
+    "method":"${METHOD}",
     "timeout":${TIMEOUT},
     "udp_timeout":${TIMEOUT},
-    "method":"${METHOD}",
     "plugin":"obfs-server",
     "plugin_opts":"obfs=${OBFS};fast-open;${OBFSLOCAL}=${OBFSHOST}${OBFSURL}",
-    "mode":"tcp_and_udp",
-    "fast_open":true,
+    "fast_open":${FASTOPEN},
+    "reuse_port":${REUSEPORT},
+    "nameserver":"${DNS}",
+    "mode":"${MODE}",
+    "mptcp":${MPTCP},
+    "use_syslog":${SYSLOG},
+    "no_delay":${NODELAY},
 }
 EOF
     if [ "$twistinstalled" = "false" ]; then

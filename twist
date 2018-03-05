@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.0 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.1 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -21,8 +21,8 @@ function shadowsocksconfig(){
     REUSEPORT="true"
     DNS1="8.8.8.8"
     DNS2="8.8.4.4"
-    DNSv61="2001:4860:4860::8888"
-    DNSv62="2001:4860:4860::8844"
+    DNSv6a="2001:4860:4860::8888"
+    DNSv6b="2001:4860:4860::8844"
     MODE="tcp_and_udp"
     MPTCP="true"
     SYSLOG="true"
@@ -400,7 +400,7 @@ function systemdetect(){
             echo ""
         fi
     fi
-    DNS="${DNS1},${DNS2},${DNSv61},${DNSv62}"
+    DNS="${DNS1},${DNS2},${DNSv6a},${DNSv6b}"
     if [ -z "$(ip -6 addr show ${ETH})" ] || [ -z "$PUBLICIPv6" ]; then
         PUBLICIPv6="$(curl -s diagnostic.opendns.com/myip)"
         if [ -z "$PUBLICIPv6" ] || [ "$PUBLICIPv6" = "$PUBLICIP" ]; then
@@ -566,8 +566,10 @@ function sslibevinstall(){
 
 function sslibevconfigure(){
     OBFSLOCAL="obfs-host"
-    OBFSURL=";obfs-uri=${OBFSURI}"
     [ "$FWS" = "enable" ] && OBFSLOCAL="failover"
+    OBFSTFO="fast-open;"
+    [ "$FASTOPEN" = "true" ] || OBFSTFO=""
+    OBFSURL=";obfs-uri=${OBFSURI}"
     [ -z "$OBFSURI" ] && OBFSURL=""
     [ "$OBFSURI" = "/" ] && OBFSURL=""
     [ -z "$PASSWORD" ] && PASSWORD="$(< /dev/urandom tr -dc 'A-HJ-NPR-Za-km-z2-9-._+?%^&*()' | head -c 8)"
@@ -585,7 +587,7 @@ function sslibevconfigure(){
     "timeout":${TIMEOUT},
     "udp_timeout":${TIMEOUT},
     "plugin":"obfs-server",
-    "plugin_opts":"obfs=${OBFS};fast-open;${OBFSLOCAL}=${OBFSHOST}${OBFSURL}",
+    "plugin_opts":"obfs=${OBFS};${OBFSTFO}${OBFSLOCAL}=${OBFSHOST}${OBFSURL}",
     "fast_open":${FASTOPEN},
     "reuse_port":${REUSEPORT},
     "nameserver":"${DNS}",

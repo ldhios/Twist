@@ -575,7 +575,6 @@ function sslibevconfigure(){
     [ -z "$OBFSURI" ] && OBFSURL=""
     [ "$OBFSURI" = "/" ] && OBFSURL=""
     [ -z "$PASSWORD" ] && PASSWORD="$(< /dev/urandom tr -dc 'A-HJ-NPR-Za-km-z2-9-._+?%^&*()' | head -c 8)"
-    [ $(echo ${kernelverheader} | awk -v ver=4.0 '{print($1>ver)? "1":"0"}') -eq "0" ] && MPTCP="false"
     [ -d /etc/shadowsocks-libev ] || mkdir -p /etc/shadowsocks-libev
     timemachine "backup" "/etc/shadowsocks-libev/config.json" "/etc/twist/config.json"
     cat > /etc/shadowsocks-libev/config.json <<-EOF
@@ -726,6 +725,7 @@ function servicesstart(){
         cat >> /etc/rc.local <<-EOF
 
 sysctl -q -p
+rngd -r /dev/urandom
 iptables-restore < /etc/iptables.rules
 ip6tables-restore < /etc/ip6tables.rules
 systemctl start fail2ban
@@ -744,7 +744,6 @@ EOF
             echo "systemctl start cron.service" >> /etc/rc.local
         fi
         cat >> /etc/rc.local <<-EOF
-rngd -r /dev/urandom
 
 exit 0
 
@@ -764,6 +763,11 @@ if [ ! -f /etc/shadowsocks-libev/config.json ]; then
 else
     [ -e /var/log/twist ] || touch /var/log/twist
 fi
+
+twistlog(){
+    echo "# \${date} \${1} " >> /var/log/twist
+    [ "\$2" = "echo" ] && echo -e "# \033[\${3};1m\${1} \033[0m"
+}
 
 ssserverstatus(){
     if [ -r /var/run/shadowsocks-libev.pid ]; then
@@ -928,11 +932,6 @@ twist_do(){
     fi
 }
 
-twistlog(){
-    echo "# \${date} \${1} " >> /var/log/twist
-    [ "\$2" = "echo" ] && echo -e "# \033[\${3};1m\${1} \033[0m"
-}
-
 case "\$1" in
     status|start|stop|restart|custom)
         twist_\${1}
@@ -961,6 +960,11 @@ EOF
 date="\$(date +%Y-%m-%d-%H:%M:%S)"
 echo -e "# [\033[34;1mTWIST Shadowsocks-libev Service Protect Services\033[0m]"
 
+twistlog(){
+    [ -e /var/log/twist ] || touch /var/log/twist
+    echo "# \${date} \${1} " >> /var/log/twist
+}
+
 twistprotect(){
     echo -e "# \033[32;1mTWIST Shadowsocks Protect Services Enabled \033[0m"
     if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
@@ -977,11 +981,6 @@ twistprotect(){
     else
         echo -e "# \033[32;1mShadowsocks-libev Service Running Detected \033[0m"
     fi
-}
-
-twistlog(){
-    [ -e /var/log/twist ] || touch /var/log/twist
-    echo "# \${date} \${1} " >> /var/log/twist
 }
 
 if [ -e /etc/twist/twistprotect ]; then
@@ -1030,7 +1029,6 @@ EOF
     echo ""
     twist start
     sleep 3
-    echo ""
     timemachine "backup" "/etc/crontab" "/etc/twist/crontab"
     [ -e /etc/crontab ] || touch /etc/crontab
     echo "*/1 * * * * root bash /root/twistprotect" >> /etc/crontab

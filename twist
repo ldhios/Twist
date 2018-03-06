@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.3 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.4 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -1009,16 +1009,14 @@ EOF
     if [ "$FWS" = "enable" ]; then
         timemachine "backup" "/var/www/html/.htaccess" "/etc/twist/.htaccess"
         timemachine "backup" "/var/www/html/index.html" "/etc/twist/index.html"
-        rm -f /var/www/html/.htaccess && echo "" > /var/www/html/.htaccess
-        cat >> /var/www/html/.htaccess <<-EOF
+        cat > /var/www/html/.htaccess <<-EOF
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteCond %{HTTP_HOST} ^$(echo $PUBLICIP | cut -d'.' -f1)\.$(echo $PUBLICIP | cut -d'.' -f2)\.$(echo $PUBLICIP | cut -d'.' -f3)\.$(echo $PUBLICIP | cut -d'.' -f4)
 RewriteRule (.*) http://${OBFSHOST}/\$1 [R=301,L]
 </IfModule>
 EOF
-        rm -f /var/www/html/index.html && echo "" > /var/www/html/index.html
-        cat >> /var/www/html/index.html <<-EOF
+        cat > /var/www/html/index.html <<-EOF
 <head><meta http-equiv="refresh" content="0;url=http://${OBFSHOST}"></head>
 EOF
         systemctl restart ${webservername}

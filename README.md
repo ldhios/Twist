@@ -1,4 +1,4 @@
-## A Light Script For You To Setup Shadowsocks-libev Server with High-Speed Connections and Powerful Features
+## A Light Script For You To Setup Shadowsocks-libev Server with High-Speed Connections and Newest Powerful Features
 
 ## Twist Features
 - **Fast, Secured and Stable Connections by Shadowsocks**
@@ -68,7 +68,9 @@ Edit values in typename="**HERE**", save and run Twist after you have confirmed 
  DNS2="8.8.4.4"                   # Default DNSv4 server address 2 from Google Public DNS
  DNSv6a="2001:4860:4860::8888"    # Default DNSv6 server address a from Google Public DNSv6
  DNSv6b="2001:4860:4860::8844"    # Default DNSv6 server address b from Google Public DNSv6
+ DSCP="EF"                        # Default dscp using expedited forwarding
  MODE="tcp_and_udp"               # Allow both connection use TCP and UDP
+ MTU="1397"                       # Default mtu size is 1397
  MPTCP="true"                     # Use multi-TCP feature that increase network speed, kernel ver > 4.0 required
  SYSLOG="true"                    # Export verbose log to /var/log/syslog
  NODELAY="true"                   # Reduce the TCP respond time delay

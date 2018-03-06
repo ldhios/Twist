@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.1 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.2 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -23,7 +23,9 @@ function shadowsocksconfig(){
     DNS2="8.8.4.4"
     DNSv6a="2001:4860:4860::8888"
     DNSv6b="2001:4860:4860::8844"
+    DSCP="EF"
     MODE="tcp_and_udp"
+    MTU="1397"
     MPTCP="true"
     SYSLOG="true"
     NODELAY="true"
@@ -591,7 +593,9 @@ function sslibevconfigure(){
     "fast_open":${FASTOPEN},
     "reuse_port":${REUSEPORT},
     "nameserver":"${DNS}",
+    "dscp":"${DSCP}",
     "mode":"${MODE}",
+    "mtu":${MTU},
     "mptcp":${MPTCP},
     "use_syslog":${SYSLOG},
     "no_delay":${NODELAY},

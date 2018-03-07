@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.7 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.8 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -130,10 +130,10 @@ function uninstall_twist(){
         sleep 2
     fi
     sslibevinstall "uninstall"
-    rm -fr /etc/shadowsocks-libev
     timemachine "restore" "/etc/twist/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
     timemachine "restore" "/etc/twist/limits.conf" "/etc/security/limits.conf"
     timemachine "restore" "/etc/twist/login" "/etc/pam.d/login"
+    timemachine "restore" "/etc/twist/resolv.conf" "/etc/resolv.conf"
     timemachine "restore" "/etc/twist/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
     timemachine "restore" "/etc/twist/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
     if [ -e /etc/twist/iptablesload ]; then
@@ -152,8 +152,8 @@ function uninstall_twist(){
     timemachine "restore" "/etc/twist/rc.local" "/etc/rc.local"
     timemachine "restore" "/etc/twist/.htaccess" "/var/www/html/.htaccess"
     timemachine "restore" "/etc/twist/index.html" "/var/www/html/index.html"
-    rm -f /usr/bin/twist /var/log/twist
-    rm -fr /etc/twist
+    rm -f /usr/bin/twist /root/twistprotect /var/log/twist
+    rm -fr /etc/twist /etc/shadowsocks-libev
     systemctl restart fail2ban apache2
     [ -e /var/www/html/index.html ] || systemctl stop apache2
     ldconfig
@@ -665,6 +665,12 @@ EOF
             timemachine "backup" "/etc/pam.d/login" "/etc/twist/login"
             [ "$systemtype" = "0" ] && echo "session    required     pam_limits.so" >> /etc/pam.d/login
         fi
+        timemachine "backup" "/etc/resolv.conf" "/etc/twist/resolv.conf"
+        echo "nameserver ${DNS1}" >> /etc/resolv.conf
+        echo "nameserver ${DNS2}" >> /etc/resolv.conf
+        [ "$IPV6ENABLE" = "false" ] || echo "nameserver ${DNSv6a}" >> /etc/resolv.conf
+        [ "$IPV6ENABLE" = "false" ] || echo "nameserver ${DNSv6b}" >> /etc/resolv.conf
+        echo "" >> /etc/resolv.conf
     fi
 }
 

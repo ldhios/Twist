@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.6 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.7 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -230,12 +230,12 @@ function systemdetecterr(){
 
 function timemachine(){
     if [ "$1" = "backup" ]; then
-        if [ -e "$3" ]; then
+        if [ -e $3 ]; then
             twistlog "Backing up ${2} to ${3}"
-            [ -e "$2" ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
+            [ -e $2 ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
         fi
     else
-        if [ -e "$2" ]; then
+        if [ -e $2 ]; then
             twistlog "Restore ${3} from ${2}"
             cp -f "${2}" "${3}"
         else
@@ -247,7 +247,7 @@ function timemachine(){
 function serverrestart(){
     if [ "$serverrestart" = "true" ]; then
         twistlog "[TWIST Required Server Restart]"
-        echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot! \033[0m]"
+        echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot!\033[0m]"
         read -p ""
         sleep 3
         reboot

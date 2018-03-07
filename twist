@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.4 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.4.5 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -25,7 +25,7 @@ function shadowsocksconfig(){
     DNSv6b="2001:4860:4860::8844"
     DSCP="EF"
     MODE="tcp_and_udp"
-    MTU="1397"
+    MTU=""
     MPTCP="true"
     SYSLOG="true"
     NODELAY="true"
@@ -411,6 +411,8 @@ function systemdetect(){
             IPV6ENABLE="false"
         fi
      fi
+     [ -z "$MTU" ] && MTU="$(cat /sys/class/net/${ETH}/mtu)"
+     [ -z "$MTU" ] && MTU="1492"
 }
 
 function dependenciesinstall(){

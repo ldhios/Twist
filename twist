@@ -1,10 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.5 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
-
-export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-
-date="$(date +%Y-%m-%d-%H:%M:%S)"
+## Twist Ver 0.4.6 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -64,7 +60,7 @@ function install_twist(){
     systemdetect
     dependenciesinstall
     tcpbbrenable
-    sslibevinstall
+    sslibevinstall "install"
     sslibevconfigure
     firewallconfigure
     servicesstart
@@ -96,7 +92,7 @@ function update_twist(){
         fi
     fi
     dependenciesinstall
-    sslibevinstall
+    sslibevinstall "install"
     echo ""
     servicesstart
     sleep 2
@@ -106,7 +102,7 @@ function update_twist(){
     twistprint banner
     serverrestart "Update"
     echo ""
-    exit 1
+    exit 0
 }
 
 function uninstall_twist(){
@@ -133,22 +129,8 @@ function uninstall_twist(){
         echo ""
         sleep 2
     fi
-    if [ -f /usr/local/bin/ss-server ]; then
-        ssinstallpath="/usr/local/bin"
-    else
-        ssinstallpath="/usr/bin"
-    fi
-    pushd ${ssinstallpath}
-    rm -f ss-local ss-tunnel ss-server ss-manager ss-redir ss-nat obfs-local obfs-server
-    popd
-    pushd /usr/local/lib
-    rm -f libshadowsocks-libev.a libshadowsocks-libev.la /pkgconfig/shadowsocks-libev.pc
-    popd
-    pushd /usr/local/share/man/man1
-    rm -f ss-local.1 ss-tunnel.1 ss-server.1 ss-manager.1 ss-redir.1 ss-nat.1
-    popd
-    rm -f /usr/local/include/shadowsocks.h /usr/local/share/man/man8/shadowsocks-libev.8
-    rm -fr /usr/local/share/doc/shadowsocks-libev /etc/shadowsocks-libev
+    sslibevinstall "uninstall"
+    rm -fr /etc/shadowsocks-libev
     timemachine "restore" "/etc/twist/sysctl.conf" "/etc/sysctl.conf" && sysctl -e -p
     timemachine "restore" "/etc/twist/limits.conf" "/etc/security/limits.conf"
     timemachine "restore" "/etc/twist/login" "/etc/pam.d/login"
@@ -196,6 +178,7 @@ function twistprint(){
     elif [ -z "$3" ]; then
         echo "######################################################################"
     else
+        twistlog "Twist was not found on Your Server"
         echo -e "#[\033[31;1m              Twist was not found on Your Server!                 \033[0m]#"
         echo ""
         exit 1
@@ -207,8 +190,18 @@ function twistlog(){
     echo "# ${date} ${1} " >> /var/log/twist
 }
 
+function kernelupdateerr(){
+    BBR="disable"
+    echo ""
+    twistlog "${1}"
+    echo -e "# [\033[31;1m${1}! \033[0m]"
+    echo ""
+    sleep 3
+}
+
 function dependenciesinstallerr(){
     echo ""
+    twistlog "Cannot ${1} Dependencies"
     echo -e "# [\033[31;1mCannot ${1} Dependencies, Please check your network or errors displayed! \033[0m]"
     echo ""
     exit 1
@@ -218,15 +211,18 @@ function sslibevinstallerr(){
     rm -rf libsodium-${libsodiumver}.tar.gz libsodium-${libsodiumver} mbedtls-${mbedtlsver}-gpl.tgz mbedtls-${mbedtlsver} ${sslibevver}.tar.gz $sslibevver ${ssobfsver}.tar.gz $ssobfsver
     echo ""
     if [ -z "$2" ]; then
+        twistlog "Cannot download ${1} source"
         echo -e "# [\033[31;1mCannot download ${1} source. Aborting! \033[0m]"
     else
-        echo -e "# [\033[31;1m Error ${1} failed to build. Aborting! \033[0m]"
+        twistlog "Error ${1} failed to build"
+        echo -e "# [\033[31;1mError ${1} failed to build. Aborting! \033[0m]"
     fi
     echo ""
     exit 1
 }
 
 function systemdetecterr(){
+    twistlog "Twist could only run on Ubuntu, Debian, Raspbian, Arch Linux, CentOS, Red Hat or Fedora"
     echo -e "# [\033[31;1mTwist could only run on Ubuntu, Debian, Raspbian, Arch Linux, CentOS, Red Hat or Fedora. Aborating! \033[0m]"
     echo ""
     exit 1
@@ -235,10 +231,12 @@ function systemdetecterr(){
 function timemachine(){
     if [ "$1" = "backup" ]; then
         if [ -e "$3" ]; then
+            twistlog "Backing up ${2} to ${3}"
             [ -e "$2" ] && { cp -f "${2}" "${3}"; cp -f "${2}" "${3}.old-${date}"; }
         fi
     else
         if [ -e "$2" ]; then
+            twistlog "Restore ${3} from ${2}"
             cp -f "${2}" "${3}"
         else
             rm -f "${3}"
@@ -250,7 +248,6 @@ function serverrestart(){
     if [ "$serverrestart" = "true" ]; then
         twistlog "[TWIST Required Server Restart]"
         echo -e "# [\033[31;1mThe Server Requires Restart to Finish ${1}, Please Press Enter to Reboot! \033[0m]"
-        echo ""
         read -p ""
         sleep 3
         reboot
@@ -330,8 +327,6 @@ function systemdetect(){
     if ! grep -qs "Twist" /etc/sysctl.conf; then
         twistinstalled="false"
     fi
-    MAKECORES="$(grep -c ^processor /proc/cpuinfo)"
-    [ -z "$MAKECORES" ] && MAKECORES="1"
     kernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
     kernelverheaderold="$kernelverheader"
     if [ $(echo ${kernelverheader} | awk -v ver=4.9 '{print($1>ver)? "1":"0"}') -eq "0" ]; then
@@ -349,6 +344,7 @@ function systemdetect(){
         [ -z "$ETH" ] && ETH="$(ip -4 route list 0/0 | grep -Po '(?<=dev )(\S+)')"
         if [ ! "$(echo "$ETH" | xargs | awk '{print $2}')" = "" ]; then
             if [ ! "$(echo "$ETH" | xargs | awk '{print $1}')" = "$(echo "$ETH" | xargs | awk '{print $2}')" ]; then
+                twistlog "More than 2 Default Network Interface detected"
                 echo -e "# [\033[31;1mThere are more than 2 Default Network Interface. Please choose it manually! \033[0m]"
                 echo ""
                 ip link
@@ -364,6 +360,7 @@ function systemdetect(){
     fi
     ethstatus="$(cat /sys/class/net/${ETH}/operstate)"
     if [ -z "$ethstatus" ] || [ "$ethstatus" = "down" ]; then
+        twistlog "The Network Interface:${ETH} is not available"
         echo -e "# [\033[31;1mNetwork Interface '${ETH}' is not available. Please try another Network Interface listed below! \033[0m]"
         echo ""
         ip link
@@ -374,12 +371,14 @@ function systemdetect(){
             ethstatus="$(cat /sys/class/net/${eth}/operstate)"
             if [ -z "$ethstatus" ] || [ "$ethstatus" = "down" ]; then
                 echo ""
+                twistlog "The Network Interface:${eth} is not available"
                 echo -e "# [\033[31;1mThe Network Interface:${eth} you entered is not available. Aborting! \033[0m]"
                 echo ""
                 exit 1
             else
                 ETH="$eth"
                 echo ""
+                twistlog "Using the new Network Interface ${ETH}"
                 echo -e "# [\033[33;1mNetwork Interface check passed, Using the new Interface\033[0m \033[32;1m${ETH} \033[0m]"
                 echo ""
             fi
@@ -388,16 +387,19 @@ function systemdetect(){
     [ -z "$PUBLICIP" ] && PUBLICIP="$(dig @resolver1.opendns.com -t A -4 myip.opendns.com +short)"
     if ! printf %s "$PUBLICIP" | grep -Eq "$IPREGEX"; then
         echo ""
+        twistlog "Cannot detect a valid Public IP"
         echo -e "# [\033[31;1mCannot detect a valid Public IP. Please fill your Public IP address below! \033[0m]"
         read -p "Input Your Public IP:" publicip
         if ! printf %s "$publicip" | grep -Eq "$IPREGEX"; then
             echo ""
+            twistlog "# The IP:${publicip} is not vailed"
             echo -e "# [\033[31;1mThe IP:${publicip} you entered is not vailed. Aborting! \033[0m]"
             echo ""
             exit 1
         else
             PUBLICIP="$publicip"
             echo ""
+            twistlog "Using Public IP:${PUBLICIP}"
             echo -e "# [\033[32;1mYou are now using Public IP:${PUBLICIP} \033[0m]"
             echo ""
         fi
@@ -425,7 +427,7 @@ function dependenciesinstall(){
     elif [ "$packagemanagertype" = "y" ]; then
         yum -y update || dependenciesinstallerr "Update"
         yum -y upgrade || dependenciesinstallerr "Upgrade"
-        [ -e /etc/yum.repos.d/epel.repo ] || { yum -y install epel-release yum-utils || { echo -e "# [\033[31;1mCannot add EPEL repository. Aborting! \033[0m]"; exit 1; }; }
+        [ -e /etc/yum.repos.d/epel.repo ] || { yum -y install epel-release yum-utils || { twistlog "Cannot add EPEL repository"; echo -e "# [\033[31;1mCannot add EPEL repository. Aborting! \033[0m]"; exit 1; }; }
         yum -y install wget gawk grep curl sed git gcc swig gettext-devel autoconf automake make libtool pcre-devel perl-devel cpio xmlto asciidoc vixie-cron crontabs fail2ban net-tools bind-utils rng-tools expat-devel openssl-devel zlib-devel libev-devel c-ares-devel python-devel python-setuptools python-pip
         [ "$?" != "0" ] && dependenciesinstallerr "Install"
         [ "$FWS" = "enable" ] && { yum -y install ${webservername} || dependenciesinstallerr "Apache"; }
@@ -435,7 +437,7 @@ function dependenciesinstall(){
         [ "$?" != "0" ] && dependenciesinstallerr "Install"
         [ "$FWS" = "enable" ] && { pacman -Syu --noconfirm apache || dependenciesinstallerr "Apache"; }
     fi
-    pip install -q qrcode || { echo ""; echo -e "# [\033[31;1mCannot Install QRCode, You may unable to configure clients by QRCode! \033[0m]"; echo ""; sleep 3; }
+    pip install -q qrcode || { echo ""; twistlog "Cannot Install QRCode"; echo -e "# [\033[31;1mCannot Install QRCode, You may unable to configure clients by QRCode! \033[0m]"; echo ""; sleep 3; }
 }
 
 function tcpbbrenable(){
@@ -452,7 +454,8 @@ function tcpbbrenable(){
                 kernelupdate
             else
                 echo ""
-                echo -e "# [\033[34;1mYou may update server kernel and enable BBR manually. Aborting! \033[0m]"
+                twistlog " Unable to update kernel for bbr"
+                echo -e "# [\033[34;1mYou may update server kernel and enable bbr manually. Aborting! \033[0m]"
                 BBR="disable"
                 sleep 3
             fi
@@ -464,7 +467,7 @@ function kernelupdate(){
     if [ "$packagemanagertype" = "a" ]; then
         KERNELURL="http://kernel.ubuntu.com/~kernel-ppa/mainline/"
         KERNELVER="$(wget -qO- ${KERNELURL} | awk -F'\"v' '/v[4-9]./{print $2}' | cut -d/ -f1 | grep -v -  | sort -V | tail -1)"
-        [ -z "$KERNELVER" ] && { BBR="disable"; echo -e "# [\033[31;1mCannot get the newest linux kernel verison, bbr disabled! \033[0m]"; }
+        [ -z "$KERNELVER" ] && kernelupdateerr "Cannot get the newest linux kernel verison, bbr disabled"
         if [ "$BBR" = "enable" ]; then
             case "$(dpkg --print-architecture)" in
                 amd64)
@@ -486,30 +489,29 @@ function kernelupdate(){
                     KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/s390x.deb/{print $2}' | cut -d'<' -f1 | head -1)"
                     ;;
                 *)
-                    BBR="disable"
-                    echo -e "# [\033[31;1mCannot get the newest linux kernel verison, bbr disabled! \033[0m]"
+                    kernelupdateerr "Cannot get the newest linux kernel verison, bbr disabled"
                     ;;
             esac
             [ "$BBR" = "enable" ] && wget -t 3 -T 30 -nv -O "$KERNEL" "${KERNELURL}v${KERNELVER}/${KERNEL}"
-            [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }; }
+            [ "$BBR" = "enable" ] && { dpkg -i $KERNEL || kernelupdateerr "Cannot update linux kernel verison, bbr disabled"; }
             [ "$BBR" = "enable" ] && { dpkg -l | grep linux-image; rm -f $KERNEL; update-grub; }
         fi
     elif [ "$packagemanagertype" = "y" ]; then
-        rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org || { echo ""; echo -e "# [\033[31;1mCannot get ELRepo key, you may unable to install ELRepo packages! \033[0m]"; echo ""; sleep 3; }
+        rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org || kernelupdateerr "Cannot get ELRepo key, you may unable to install ELRepo packages"
         if grep -qs "release 7" /etc/*-release; then
-            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover7}.e17.elrepo.noarch.rpm" || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
-            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover7}.e17.elrepo.noarch.rpm" || kernelupdateerr "Cannot Install ELRepo repository. Aborting"
+            [ "$BBR" = "enable" ] && { yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || kernelupdateerr "Cannot update linux kernel verison, bbr disabled"; }
             [ "$BBR" = "enable" ] && grub2-set-default 0
         elif grep -qs "release 6" /etc/*-release; then
-            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover6}.e16.elrepo.noarch.rpm" || { echo ""; echo -e "# [\033[31;1mCannot Install ELRepo Repository. Aborting! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
-            [ "$BBR" = "enable" ] && yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || { echo ""; echo -e "# [\033[31;1mCannot update kernel, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover6}.e16.elrepo.noarch.rpm" || kernelupdateerr "Cannot Install ELRepo repository. Aborting"
+            [ "$BBR" = "enable" ] && { yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || kernelupdateerr "Cannot update linux kernel verison, bbr disabled"; }
             [ "$BBR" = "enable" ] && sed -i 's/^default=.*/default=0/g' /boot/grub/grub.conf
         fi
     elif [ "$packagemanagertype" = "p" ]; then
         if grep -Eqi "IgnorePkg|IgnoreGroup" /etc/pacman.conf; then
             sed -i "/IgnorePkg/d;/IgnoreGroup/d" /etc/pacman.conf
         fi
-        pacman -Syyu --noconfirm || { echo ""; echo -e "# [\033[31;1mCannot update kernel and sources, bbr disabled! \033[0m]"; echo ""; sleep 3; BBR="disable"; }
+        pacman -Syyu --noconfirm || kernelupdateerr "Cannot update linux kernel verison, bbr disabled"
     fi
     [ "$BBR" = "enable" ] && { kernelupdated="true"; serverrestart="true"; }
     kernelverheader="$(uname -r | grep -oE '[0-9]+\.[0-9]+')"
@@ -517,27 +519,32 @@ function kernelupdate(){
 }
 
 function sslibevinstall(){
-    [ -z "$libsodiumver" ] && libsodiumver="$(wget -qO- https://api.github.com/repos/jedisct1/libsodium/releases/latest | grep 'tag_name' | cut -d\" -f4)"
-    wget -t 3 -T 30 -nv -O libsodium-${libsodiumver}.tar.gz https://github.com/jedisct1/libsodium/releases/download/${libsodiumver}/libsodium-${libsodiumver}.tar.gz
-    [ "$?" != "0" ] && sslibevinstallerr "libsodium-${libsodiumver}"
-    [ -d libsodium-${libsodiumver} ] && rm -rf libsodium-${libsodiumver}
-    tar zxf libsodium-${libsodiumver}.tar.gz
-    pushd libsodium-${libsodiumver}
-    ./configure --prefix=/usr && make "-j$((MAKECORES+1))" && make install || sslibevinstallerr "libsodium-${libsodiumver}" err
-    popd
-    if ! ldconfig -p | grep -wq "/usr/lib"; then
-        echo "/usr/lib" > /etc/ld.so.conf.d/lib.conf
+    MAKECORES="$(grep -c ^processor /proc/cpuinfo)"
+    [ -z "$MAKECORES" ] && MAKECORES="1"
+	if [ "$1" = "install" ]; then
+        [ -z "$libsodiumver" ] && libsodiumver="$(wget -qO- https://api.github.com/repos/jedisct1/libsodium/releases/latest | grep 'tag_name' | cut -d\" -f4)"
+        wget -t 3 -T 30 -nv -O libsodium-${libsodiumver}.tar.gz https://github.com/jedisct1/libsodium/releases/download/${libsodiumver}/libsodium-${libsodiumver}.tar.gz
+        [ "$?" != "0" ] && sslibevinstallerr "libsodium-${libsodiumver}"
+        [ -d libsodium-${libsodiumver} ] && rm -rf libsodium-${libsodiumver}
+        tar zxf libsodium-${libsodiumver}.tar.gz
+        pushd libsodium-${libsodiumver}
+        ./configure --prefix=/usr && make "-j$((MAKECORES+1))" && make install || sslibevinstallerr "libsodium-${libsodiumver}" err
+        popd
+        if ! ldconfig -p | grep -wq "/usr/lib"; then
+            echo "/usr/lib" > /etc/ld.so.conf.d/lib.conf
+        fi
+        ldconfig
+        [ -z "$mbedtlsver" ] && mbedtlsver="$(wget -qO- https://tls.mbed.org/download-archive | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | cut -d'.' -f1,2,3 | sort -V | tail -1)"
+        wget -t 3 -T 30 -nv -O mbedtls-${mbedtlsver}-gpl.tgz https://tls.mbed.org/download/mbedtls-${mbedtlsver}-gpl.tgz
+        [ "$?" != "0" ] && sslibevinstallerr "mbedtls-${mbedtlsver}"
+        [ -d mbedtls-${mbedtlsver} ] && rm -rf mbedtls-${mbedtlsver}
+        tar xf mbedtls-${mbedtlsver}-gpl.tgz
+        pushd mbedtls-${mbedtlsver}
+        make SHARED=1 CFLAGS=-fPIC "-j$((MAKECORES+1))" && make DESTDIR=/usr install || sslibevinstallerr "mbedtls-${mbedtlsver}" err
+        popd
+        ldconfig
+        rm -rf libsodium-${libsodiumver}.tar.gz libsodium-${libsodiumver} mbedtls-${mbedtlsver}-gpl.tgz mbedtls-${mbedtlsver}
     fi
-    ldconfig
-    [ -z "$mbedtlsver" ] && mbedtlsver="$(wget -qO- https://tls.mbed.org/download-archive | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | cut -d'.' -f1,2,3 | sort -V | tail -1)"
-    wget -t 3 -T 30 -nv -O mbedtls-${mbedtlsver}-gpl.tgz https://tls.mbed.org/download/mbedtls-${mbedtlsver}-gpl.tgz
-    [ "$?" != "0" ] && sslibevinstallerr "mbedtls-${mbedtlsver}"
-    [ -d mbedtls-${mbedtlsver} ] && rm -rf mbedtls-${mbedtlsver}
-    tar xf mbedtls-${mbedtlsver}-gpl.tgz
-    pushd mbedtls-${mbedtlsver}
-    make SHARED=1 CFLAGS=-fPIC "-j$((MAKECORES+1))" && make DESTDIR=/usr install || sslibevinstallerr "mbedtls-${mbedtlsver}" err
-    popd
-    ldconfig
     [ -z "$sslibevtag" ] && sslibevtag="$(wget -qO- https://api.github.com/repos/shadowsocks/shadowsocks-libev/releases/latest | grep 'tag_name' | cut -d\" -f4)"
     sslibevver="shadowsocks-libev-$(echo ${sslibevtag} | sed -e 's/^[a-zA-Z]//g')"
     wget -t 3 -T 30 -nv -O ${sslibevver}.tar.gz https://github.com/shadowsocks/shadowsocks-libev/releases/download/${sslibevtag}/${sslibevver}.tar.gz
@@ -546,7 +553,7 @@ function sslibevinstall(){
     tar zxf ${sslibevver}.tar.gz
     pushd $sslibevver
     ./configure --disable-documentation
-    make "-j$((MAKECORES+1))" && make install || sslibevinstallerr "shadowsocks-libev-$(echo ${sslibevtag} | sed -e 's/^[a-zA-Z]//g')" err
+    make "-j$((MAKECORES+1))" && make ${1} || sslibevinstallerr "shadowsocks-libev-$(echo ${sslibevtag} | sed -e 's/^[a-zA-Z]//g')" err
     popd
     ldconfig
     [ -z "$ssobfstag" ] && ssobfstag="$(wget -qO- https://api.github.com/repos/shadowsocks/simple-obfs/releases/latest | grep 'tag_name' | cut -d\" -f4)"
@@ -561,11 +568,11 @@ function sslibevinstall(){
     [ "$?" != "0" ] && sslibevinstallerr "libcork"
     ./autogen.sh
     ./configure
-    make "-j$((MAKECORES+1))" && make install || sslibevinstallerr "simple-obfs-$(echo ${ssobfstag} | sed -e 's/^[a-zA-Z]//g')" err
+    make "-j$((MAKECORES+1))" && make ${1} || sslibevinstallerr "simple-obfs-$(echo ${ssobfstag} | sed -e 's/^[a-zA-Z]//g')" err
     popd
     ldconfig
     [ -f /usr/local/bin/obfs-server ] && ln -s /usr/local/bin/obfs-server /usr/bin
-    rm -rf libsodium-${libsodiumver}.tar.gz libsodium-${libsodiumver} mbedtls-${mbedtlsver}-gpl.tgz mbedtls-${mbedtlsver} ${sslibevver}.tar.gz $sslibevver ${ssobfsver}.tar.gz $ssobfsver
+    rm -rf ${sslibevver}.tar.gz $sslibevver ${ssobfsver}.tar.gz $ssobfsver
 }
 
 function sslibevconfigure(){
@@ -1049,6 +1056,11 @@ function servicesstatus(){
     echo -e " \033[32;1mPassWord:\033[0m \033[34;1m${PASSWORD}\033[0m \033[32;1mEncryption:\033[0m \033[34;1m${METHOD}\033[0m \033[32;1mOBFS:\033[0m \033[34;1m${OBFS}\033[0m \033[32;1mOBFS-HOST:\033[0m \033[34;1m${OBFSHOST}\033[0m \033[32;1mOBFS-URI:\033[0m \033[34;1m${OBFSURI}\033[0m \033[32;1mLOCALHOST:\033[0m \033[34;1m${LOACL}:${LOCALPORT}\033[0m]"
     serverrestart "Installation"
 }
+
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+date="$(date +%Y-%m-%d-%H:%M:%S)"
+[ -d /tmp ] || mkdir /tmp
+cd /tmp
 
 case "$1" in
     install|update|uninstall)

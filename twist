@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.4.9 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.5.0 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -23,6 +23,7 @@ function shadowsocksconfig(){
     MODE="tcp_and_udp"
     MTU=""
     MPTCP="true"
+    IPV6FIRST="true"
     SYSLOG="true"
     NODELAY="true"
     FWS="enable"
@@ -411,6 +412,7 @@ function systemdetect(){
             SSLOCAL="\"0.0.0.0\""
             DNS="${DNS1},${DNS2}"
             IPV6ENABLE="false"
+            IPV6FIRST="false"
         fi
      fi
      [ -z "$MTU" ] && MTU="$(cat /sys/class/net/${ETH}/mtu)"
@@ -605,6 +607,7 @@ function sslibevconfigure(){
     "mode":"${MODE}",
     "mtu":${MTU},
     "mptcp":${MPTCP},
+    "ipv6_first":${IPV6FIRST},
     "use_syslog":${SYSLOG},
     "no_delay":${NODELAY},
 }

@@ -501,7 +501,7 @@ function kernelupdate(){
     elif [ "$packagemanagertype" = "y" ]; then
         rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org || kernelupdateerr "Cannot get ELRepo key, you may unable to install ELRepo packages"
         if grep -qs "release 7" /etc/*-release; then
-            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover7}.e17.elrepo.noarch.rpm" || kernelupdateerr "Cannot Install ELRepo repository. Aborting"
+            rpm -Uvh "http://www.elrepo.org/elrepo-release-${elrepover7}.el7.elrepo.noarch.rpm" || kernelupdateerr "Cannot Install ELRepo repository. Aborting"
             [ "$BBR" = "enable" ] && { yum --enablerepo=elrepo-kernel -y install kernel-ml kernel-ml-devel || kernelupdateerr "Cannot update linux kernel verison, bbr disabled"; }
             [ "$BBR" = "enable" ] && grub2-set-default 0
         elif grep -qs "release 6" /etc/*-release; then

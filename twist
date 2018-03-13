@@ -1,6 +1,6 @@
 #! /bin/bash
 
-## Twist Ver 0.5.1 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.5.2 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -137,18 +137,8 @@ function uninstall_twist(){
     timemachine "restore" "/etc/twist/resolv.conf" "/etc/resolv.conf"
     timemachine "restore" "/etc/twist/iptables.rules" "/etc/iptables.rules" && iptables-restore < /etc/iptables.rules
     timemachine "restore" "/etc/twist/ip6tables.rules" "/etc/ip6tables.rules" && ip6tables-restore < /etc/ip6tables.rules
-    if [ -e /etc/twist/iptablesload ]; then
-        cp -f "/etc/twist/iptablesload" "/etc/network/if-pre-up.d/iptablesload"
-    else
-        rm -f /etc/network/if-pre-up.d/iptablesload
-    fi
-    if [ -e /etc/twist/ip6tablesload ]; then
-        cp -f "/etc/twist/ip6tablesload" "/etc/network/if-pre-up.d/ip6tablesload"
-    else
-        rm -f /etc/network/if-pre-up.d/ip6tablesload
-    fi
-    [ -d "/etc/twist/firewalld" ] && cp -fr "/etc/twist/firewalld" "/etc/firewalld"
-    [ -d "/etc/twist/lib/firewalld" ] && cp -fr "/etc/twist/lib/firewalld" "/usr/lib/firewalld"
+    timemachine "restore" "/etc/twist/iptablesload" "/etc/network/if-pre-up.d/iptablesload"
+    timemachine "restore" "/etc/twist/ip6tablesload" "/etc/network/if-pre-up.d/ip6tablesload"
     timemachine "restore" "/etc/twist/crontab" "/etc/crontab"
     timemachine "restore" "/etc/twist/rc.local" "/etc/rc.local"
     timemachine "restore" "/etc/twist/.htaccess" "/var/www/html/.htaccess"
@@ -454,15 +444,7 @@ function tcpbbrenable(){
             fi
         else
             echo "net.ipv4.tcp_congestion_control = hybla" >> /etc/sysctl.conf
-            if grep -Eqi "Ubuntu|Arch Liunx|CentOS|Red Hat" /etc/*-release || grep -Eqi "Ubuntu|Arch Liunx|CentOS|Red Hat" /proc/version; then
-                kernelupdate
-            else
-                echo ""
-                twistlog " Unable to update kernel for bbr"
-                echo -e "# [\033[34;1mYou may update server kernel and enable bbr manually. Aborting! \033[0m]"
-                BBR="disable"
-                sleep 3
-            fi
+            kernelupdate
         fi
     fi
 }
@@ -604,6 +586,7 @@ function sslibevconfigure(){
     "plugin_opts":"obfs=${OBFS};${OBFSTFO}${OBFSLOCAL}=${OBFSHOST}${OBFSURL}",
     "fast_open":${FASTOPEN},
     "reuse_port":${REUSEPORT},
+    "nofile":512000,
     "nameserver":"${DNS}",
     "dscp":"${DSCP}",
     "mode":"${MODE}",
@@ -671,8 +654,8 @@ net.ipv4.icmp_ignore_bogus_error_responses = 1
 net.ipv6.conf.all.forwarding = 1
 net.ipv6.conf.all.accept_source_route = 1
 net.ipv6.conf.default.accept_source_route = 1
-net.ipv6.conf.all.accept_redirects = 0
-net.ipv6.conf.default.accept_redirects = 0
+net.ipv6.conf.all.accept_redirects = 1
+net.ipv6.conf.default.accept_redirects = 1
 net.ipv6.conf.all.autoconf = 1
 net.ipv6.conf.all.accept_ra = 2
 net.ipv6.conf.${ETH}.accept_ra = 2
@@ -727,20 +710,6 @@ ip6tables-restore < /etc/ip6tables.rules
 exit 0
 
 EOF
-    if [ "$systemtype" = "0" ]; then
-        systemctl start firewalld
-        if [ "$twistinstalled" = "false" ]; then
-            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twist/firewalld"
-            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twist/lib/firewalld"
-        else
-            [ -d /etc/firewalld ] && cp -fr "/etc/firewalld" "/etc/twist/firewalld.old-${date}"
-            [ -d /usr/lib/firewalld ] && cp -fr "/usr/lib/firewalld" "/etc/twist/lib/firewalld.old-${date}"
-        fi
-        firewall-cmd --permanent --zone=public --add-port=${PORT}/tcp
-        firewall-cmd --permanent --zone=public --add-port=${PORT}/udp
-        [ "$FWS" = "enable" ] && firewall-cmd --permanent --zone=public --add-port=80/tcp
-        firewall-cmd --reload
-    fi
 }
 
 function servicesstart(){
@@ -761,7 +730,6 @@ function servicesstart(){
         cat >> /etc/rc.local <<-EOF
 
 sysctl -q -p
-rngd -r /dev/urandom
 iptables-restore < /etc/iptables.rules
 ip6tables-restore < /etc/ip6tables.rules
 systemctl restart fail2ban cron ${webservername}
@@ -773,7 +741,6 @@ if [ -e /etc/twist/twistprotect ]; then
         ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
     fi
 fi
-
 exit 0
 
 EOF
@@ -945,7 +912,7 @@ twist_restart(){
 twist_custom(){
     twistlog "[TWIST Loading Shadowsocks Configurator]" "echo" "34"
     sleep 2
-    sudo nano /etc/shadowsocks-libev/config.json
+    nano /etc/shadowsocks-libev/config.json
     /usr/bin/twist restart
 }
 
@@ -953,7 +920,7 @@ twist_do(){
     twistlog "[TWIST Preparing \${2}]" "echo" "34"
     sleep 2
     cd /tmp
-    sudo wget -t 3 -T 30 -nv -O "twist.sh" "https://raw.githubusercontent.com/Unbinilium/Twist/master/twist" && { chmod -x twist.sh; bash twist.sh \${1}; }
+    wget -t 3 -T 30 -nv -O "twist.sh" "https://raw.githubusercontent.com/Unbinilium/Twist/master/twist" && { chmod -x twist.sh; bash twist.sh \${1}; }
     if [ "\$?" = "0" ]; then
         status="0"
     else
@@ -999,7 +966,7 @@ twistprotect(){
     if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
         echo -e "# \033[31;1mShadowsocks-libev Service Stopped Detected \033[0m"
         twistlog "Shadowsocks-libev Service Stopped Detected"
-        ${ssserverpath} -uv -c /etc/shadowsocks-libev/config.json -f /var/run/shadowsocks-libev.pid
+        /usr/bin/twist restart
         if [ "\$(ps -ef | grep -v grep | grep -i "${ssserverpath}" | awk '{print \$2}')" = "" ]; then
             twistlog "Shadowsocks-libev Service Restart Failed"
             twistlog "[Shadowsocks Protect Services Disabled Due To Error]"
@@ -1021,11 +988,10 @@ fi
 EOF
     chmod +x /etc/network/if-pre-up.d/iptablesload /etc/network/if-pre-up.d/ip6tablesload /etc/rc.local /usr/bin/twist /root/twistprotect
     chmod 600 /etc/shadowsocks-libev/config.json
-    [ "$systemtype" = "0" ] && systemctl --now mask firewalld
     systemctl enable iptables fail2ban cron
+    systemctl restart iptables fail2ban cron
     iptables-restore < /etc/iptables.rules
     ip6tables-restore < /etc/ip6tables.rules
-    systemctl restart fail2ban cron
     sysctl -p
     ldconfig
     if [ "$FWS" = "enable" ]; then

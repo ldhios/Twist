@@ -457,10 +457,10 @@ function kernelupdate(){
         if [ "$BBR" = "enable" ]; then
             case "$(dpkg --print-architecture)" in
                 amd64)
-                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/amd64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "lowlatency" | awk -F'\">' '/amd64.deb/{print $2}' | cut -d'<' -f1 | head -1)"
                     ;;
                 i386)
-                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/i386.deb/{print $2}' | cut -d'<' -f1 | head -1)"
+                    KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "lowlatency" | awk -F'\">' '/i386.deb/{print $2}' | cut -d'<' -f1 | head -1)"
                     ;;
                 armhf)
                     KERNEL="$(wget -qO- ${KERNELURL}v${KERNELVER}/ | grep "linux-image" | grep "generic" | awk -F'\">' '/armhf.deb/{print $2}' | cut -d'<' -f1 | head -1)"

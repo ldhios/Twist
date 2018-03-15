@@ -1,6 +1,7 @@
 #! /bin/bash
 
-## Twist Ver 0.5.2 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Twist Ver 0.5.3 beta* Written by Unbinilium https://github.com/Unbinilium/Twist
+## Next update will provide mptcp feature
 
 function shadowsocksconfig(){
     SSLOCAL="[\"[::0]\",\"0.0.0.0\"]"
@@ -325,13 +326,6 @@ function systemdetect(){
     if [ $(echo ${kernelverheader} | awk -v ver=4.8 '{print($1>ver)? "1":"0"}') -eq "0" ]; then
         [ "$BBR" = "enable" ] && serverrestart="true"
     fi
-    if [ "$(getconf LONG_BIT)" = "64" ]; then
-        shmmax="68719476736"
-        shmall="4294967296"
-    else
-        shmmax="4294967295"
-        shmall="268435456"
-    fi
     if [ -z "$ETH" ]; then
         ETH="$(route | grep '^default' | grep -o '[^ ]*$')"
         [ -z "$ETH" ] && ETH="$(ip -4 route list 0/0 | grep -Po '(?<=dev )(\S+)')"
@@ -602,27 +596,10 @@ EOF
         cat >> /etc/sysctl.conf <<-EOF
 
 # Twist
-fs.file-max = 2097152
-kernel.msgmnb = 65536
-kernel.msgmax = 65536
-kernel.shmall = ${shmall}
-kernel.shmmax = ${shmmax}
-net.core.rmem_default = 1048576
-net.core.wmem_default = 1048576
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.core.optmem_max = 65536
-net.core.netdev_max_backlog = 65536
-net.core.somaxconn = 16384
+fs.file-max = 512000
 net.core.default_qdisc = fq
 net.ipv4.ip_forward = 1
 net.ipv4.ip_local_port_range = 2000 65535
-net.ipv4.tcp_rmem = 4096 87380 16777216
-net.ipv4.tcp_wmem = 4096 87380 16777216
-net.ipv4.udp_rmem_min = 16384
-net.ipv4.udp_wmem_min = 16384
-net.ipv4.tcp_max_syn_backlog = 65536
-net.ipv4.tcp_max_tw_buckets = 65536
 net.ipv4.tcp_window_scaling = 1
 net.ipv4.tcp_syncookies = 1
 net.ipv4.tcp_timestamps = 1
@@ -662,8 +639,8 @@ net.ipv6.conf.${ETH}.accept_ra = 2
 
 EOF
         timemachine "backup" "/etc/security/limits.conf" "/etc/twist/limits.conf"
-        echo "*                soft    nofile           512000" >> /etc/security/limits.conf
-        echo "*                hard    nofile          1024000" >> /etc/security/limits.conf
+        echo "*                soft    nofile          512000" >> /etc/security/limits.conf
+        echo "*                hard    nofile          512000" >> /etc/security/limits.conf
         echo "" >> /etc/security/limits.conf
         if ! grep -qs "pam_limits.so" /etc/pam.d/login; then
             timemachine "backup" "/etc/pam.d/login" "/etc/twist/login"

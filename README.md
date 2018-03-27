@@ -54,8 +54,6 @@ sudo twist custom  # Edit the value in json format
 Edit values in typename="**HERE**", save and run Twist after you have confirmed that it is correct
 ```txt
  PORT="443"                       # Server port
- LOACL="127.0.0.1"                # The address that server listens
- LOCALPORT="1080"                 # Local port of loacl address that server listens
  PASSWORD=""                      # Password used for encryption, auto generate if left free
  METHOD="xchacha20-ietf-poly1305" # Encryption, AEAD is better than OTA cipher which is already departed
  TIMEOUT="600"                    # Drop connections if it not using in seconds

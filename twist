@@ -602,17 +602,32 @@ net.ipv4.tcp_fack = 1
 net.ipv4.tcp_sack = 1
 net.ipv4.tcp_dsack = 1
 net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fwmark_accept = 1
+net.ipv4.tcp_stdurg = 1
 net.ipv4.tcp_synack_retries = 30
 net.ipv4.tcp_syn_retries = 30
 net.ipv4.tcp_rfc1337 = 1
 net.ipv4.tcp_fin_timeout = 60
-net.ipv4.tcp_keepalive_time = ${TIMEOUT}
+net.ipv4.tcp_keepalive_time = 1800
 net.ipv4.tcp_mtu_probing = 1
 net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_low_latency = 1
+net.ipv4.tcp_workaround_signed_windows = 1
+net.ipv4.udp_l3mdev_accept = 1
+net.ipv4.fib_multipath_hash_policy = 1
+net.ipv4.fib_multipath_use_neigh = 1
+net.ipv4.cipso_rbm_optfmt = 1
+net.ipv4.fwmark_reflect = 1
 net.ipv4.conf.all.accept_source_route = 1
 net.ipv4.conf.all.accept_redirects = 1
 net.ipv4.conf.all.send_redirects = 1
 net.ipv4.conf.all.rp_filter = 1
+net.ipv4.conf.all.arp_accept = 1
+net.ipv4.conf.all.arp_announce = 1
+net.ipv4.conf.all.proxy_arp = 1
+net.ipv4.conf.all.proxy_arp_pvlan = 1
+net.ipv4.conf.all.mc_forwarding = 1
+net.ipv4.icmp_echo_ignore_all = 1
 net.ipv4.icmp_echo_ignore_broadcasts = 1
 net.ipv4.icmp_ignore_bogus_error_responses = 1
 net.ipv6.conf.all.forwarding = 1
@@ -620,6 +635,7 @@ net.ipv6.conf.all.accept_source_route = 1
 net.ipv6.conf.all.accept_redirects = 1
 net.ipv6.conf.all.autoconf = 1
 net.ipv6.conf.all.accept_ra = 2
+net.ipv6.conf.all.seg6_enabled = 1
 
 EOF
         timemachine "backup" "/etc/security/limits.conf" "/etc/twist/limits.conf"
@@ -961,7 +977,6 @@ EOF
         cat > /var/www/html/.htaccess <<-EOF
 <IfModule mod_rewrite.c>
 RewriteEngine On
-RewriteCond %{HTTP_HOST} ^$(echo $PUBLICIP | cut -d'.' -f1)\.$(echo $PUBLICIP | cut -d'.' -f2)\.$(echo $PUBLICIP | cut -d'.' -f3)\.$(echo $PUBLICIP | cut -d'.' -f4)
 RewriteRule (.*) http://${OBFSHOST}/\$1 [R=301,L]
 </IfModule>
 EOF
